@@ -100,12 +100,12 @@ void main() {
     vec4 data = texture2D(s_ColorMetalnessSubsurface, v_texcoord0);
     float metalness = unpackMetalness(data.a);
     float subsurface = unpackSubsurface(data.a);
+    subsurface *= linearstep(120.0, 115.0, length(worldPos));
     vec3 albedo = pow(data.rgb, vec3_splat(2.2)) * 2.0;
     vec3 f0 = mix(vec3_splat(0.02), albedo, metalness);
     vec3 normal = octToNdirSnorm(texture2D(s_Normal, v_texcoord0).rg);
 
     vec3 shadowMap = calcShadowMap(worldPos, normal).rgr;
-    if (shadowMap.r > 0.9) subsurface = 0.0;
 
 #ifdef VOLUMETRIC_CLOUDS_ENABLED
     CloudSetup cloudSetup = calcCloudSetup(DirectionalLightSourceWorldSpaceDirection.y, position.y);

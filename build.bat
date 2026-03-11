@@ -1,9 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 :: Name: build.bat
-:: Version: v1.2.2
+:: Version: v1.2.3
 :: Author: bambosan
-:: Date: 2026, 03, 06
+:: Date: 2026, 03, 11
 
 title Build Mirai Shader
 
@@ -23,8 +23,8 @@ set "ERR=[41;97m" && REM Red background with white text
 
 REM Profiles
 set "BASE_PROFILE=windows"
-set "NORMAL_PROFILE=windows features vclouds"
-set "NOCLOUDS_PROFILE=windows features"
+set "NORMAL_PROFILE=windows shading vclouds"
+set "NOCLOUDS_PROFILE=windows shading"
 
 REM Shaderc paths
 set "SHADERC_PATH=shaderc.exe"
@@ -124,7 +124,7 @@ cls
 
 REM Build all profiles for windows
 echo !WHT!Running build: %BASE_PROFILE%!RST!
-call python -m lazurite build ./src -p "%BASE_PROFILE%" -o "%BASE_MATERIALS_PATH%" --skip-validation
+call python -m lazurite build ./src -p %BASE_PROFILE% -o "%BASE_MATERIALS_PATH%" --skip-validation
 if errorlevel 1 (
     echo !ERR!Failed to build profile: %BASE_PROFILE%!RST!
     pause
@@ -136,7 +136,7 @@ pause
 
 cls
 echo !WHT!Running build: %NORMAL_PROFILE%!RST!
-call python -m lazurite build ./src -p "%NORMAL_PROFILE%" -o "%VC_SUBPACK_MATERIALS_PATH%" --skip-validation
+call python -m lazurite build ./src -p %NORMAL_PROFILE% -o "%VC_SUBPACK_MATERIALS_PATH%" --skip-validation
 if errorlevel 1 (
     echo !ERR!Failed to build profile: %NORMAL_PROFILE%!RST!
     pause
@@ -148,7 +148,7 @@ pause
 
 cls
 echo !WHT!Running build: %NOCLOUDS_PROFILE%!RST!
-call python -m lazurite build ./src -p "%NOCLOUDS_PROFILE%" -o "%NOVC_SUBPACK_MATERIALS_PATH%" --skip-validation
+call python -m lazurite build ./src -p %NOCLOUDS_PROFILE% -o "%NOVC_SUBPACK_MATERIALS_PATH%" --skip-validation
 if errorlevel 1 (
     echo !ERR!Failed to build profile: %NOCLOUDS_PROFILE%!RST!
     pause
