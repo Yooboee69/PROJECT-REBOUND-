@@ -73,7 +73,7 @@
 #define M_DENSITY_CAM_MOD     10.0
 #define M_OZONE               1.5
 #define M_OZONE2              5.0
-#define M_MIE                 2.0
+#define M_MIE                 2.5
 
 float sq(float x) { return x*x; }
 float pow4(float x) { return sq(x)*sq(x); }
@@ -94,7 +94,7 @@ vec2 SphereIntersection(vec3 rayStart, vec3 rayDir, vec3 sphereCenter, float sph
 }
 
 vec3 GetLightTransmittance(vec3 lightDir, float multiplier, float ozoneMultiplier) {
-    float lightExtinctionAmount = exp(-(saturate(lightDir.y + 0.05) * 40.0)) + exp(-(saturate(lightDir.y + 0.5) * 5.0)) * 0.4 + sq(saturate(1.0-lightDir.y)) * 0.02 + 0.002;
+    float lightExtinctionAmount = exp(-(saturate(lightDir.y + 0.025) * 40.0)) + exp(-(saturate(lightDir.y + 0.25) * 5.0)) * 0.4 + sq(saturate(1.0-lightDir.y)) * 0.02 + 0.002;
     return exp(-(C_RAYLEIGH + C_MIE + C_OZONE * ozoneMultiplier) * lightExtinctionAmount * ATMOSPHERE_DENSITY * multiplier * M_LIGHT_TRANSMITTANCE);
 }
 
@@ -171,11 +171,11 @@ vec3 GetAtmosphere(
 
         float costh = dot(rayDir, lightDir);
         float phaseR = PhaseR(costh);
-        float phaseM = PhaseM(costh, 0.85);
+        float phaseM = PhaseM(costh, 0.8);
 
         // Combined scattering
-        vec3 rayleigh = (phaseR * occlusion + phaseR * M_FAKE_MS) * lightColor;
-        vec3 mie = ((phaseM * occlusion + phaseR * M_FAKE_MS) * lightColor) * M_MIE;
+        vec3 rayleigh = (phaseR * occlusion + phaseR * M_FAKE_MS) * saturation(lightColor, 0.2);
+        vec3 mie = (phaseM * occlusion + phaseR * M_FAKE_MS) * lightColor * M_MIE;
         vec3 scattering = mie * M + rayleigh * R;
 
         // View extinction, matched to reference
@@ -196,17 +196,17 @@ vec3 GetAtmosphere(
 
 // Overloaded functions
 vec3 GetAtmosphere(vec3 rayDir, float rayLength, float aerial, vec3 lightDir, vec3 lightColor, out vec4 transmittance) {
-    return GetAtmosphere(vec3(0.0, 100.0, 0.0), rayDir, rayLength, aerial, lightDir, lightColor, transmittance, 1.0);
+    return GetAtmosphere(vec3(0.0, 10.0, 0.0), rayDir, rayLength, aerial, lightDir, lightColor, transmittance, 1.0);
 }
 
 vec3 GetAtmosphere(vec3 rayDir, float rayLength, float aerial, vec3 lightDir, vec3 lightColor) {
     vec4 transmittance;
-    return GetAtmosphere(vec3(0.0, 100.0, 0.0), rayDir, rayLength, aerial, lightDir, lightColor, transmittance, 1.0);
+    return GetAtmosphere(vec3(0.0, 10.0, 0.0), rayDir, rayLength, aerial, lightDir, lightColor, transmittance, 1.0);
 }
 
 vec3 GetAtmosphere(vec3 rayDir, float rayLength, vec3 lightDir, vec3 lightColor) {
     vec4 transmittance;
-    return GetAtmosphere(vec3(0.0, 100.0, 0.0), rayDir, rayLength, 1.0, lightDir, lightColor, transmittance, 1.0);
+    return GetAtmosphere(vec3(0.0, 10.0, 0.0), rayDir, rayLength, 1.0, lightDir, lightColor, transmittance, 1.0);
 }
 
 #endif

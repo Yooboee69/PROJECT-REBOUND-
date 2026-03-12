@@ -127,10 +127,10 @@ void main() {
 
     // air scattering
     // aerial intensity is higher when sunrise
-    float aerialModulator = 1.0 + smoothstep(0.5, 0.75, TimeOfDay.r) * smoothstep(0.82, 0.7, TimeOfDay.r) * 10.0;
+    float aerialModulator = 1.0 + smoothstep(0.5, 0.75, TimeOfDay.r) * smoothstep(0.85, 0.7, TimeOfDay.r) * 10.0;
     vec4 transmittance;
     vec3 airScattering = GetAtmosphere(
-        vec3(0.0, 100.0, 0.0),
+        vec3(0.0, 10.0, 0.0),
         worldDir,
         viewDist,
         aerialModulator,
@@ -140,7 +140,7 @@ void main() {
         shadowMap
     ) * SUN_MAX_ILLUMINANCE;
     airScattering += GetAtmosphere(
-        vec3(0.0, 100.0, 0.0),
+        vec3(0.0, 10.0, 0.0),
         worldDir,
         viewDist,
         aerialModulator,

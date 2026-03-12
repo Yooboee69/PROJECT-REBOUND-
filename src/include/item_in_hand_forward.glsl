@@ -106,8 +106,8 @@ void main() {
 
     //lighting color setup
     //add smooth transition between night and sunrise, sunset and night
-    float sunFade = smoothstep(0.0, 0.2, SunDir.y);
-    float moonFade = smoothstep(0.0, 0.2, MoonDir.y);
+    float sunFade = smoothstep(0.0, 0.1, SunDir.y);
+    float moonFade = smoothstep(0.0, 0.1, MoonDir.y);
 
     vec3 absorbColor = GetLightTransmittance(SunDir.xyz) * sunFade * PI * M_EXPOSURE_MUL * SUN_MAX_ILLUMINANCE;
     absorbColor += GetLightTransmittance(MoonDir.xyz) * moonFade * PI * M_EXPOSURE_MUL * MOON_MAX_ILLUMINANCE;
