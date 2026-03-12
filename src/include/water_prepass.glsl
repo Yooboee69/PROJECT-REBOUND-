@@ -1,5 +1,3 @@
-#include "./lib/taau_util.glsl"
-
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
@@ -57,6 +55,7 @@ uniform highp vec4 Time;
 #include "./lib/common.glsl"
 #include "./lib/materials.glsl"
 #include "./lib/water_wave.glsl"
+#include "./lib/taau_util.glsl"
 
 void main() {
     vec3 normal = gl_FrontFacing ? -v_normal : v_normal;

@@ -1,7 +1,6 @@
 #include "./lib/common.glsl"
 #include "./lib/actor_util.glsl"
 #include "./lib/taau_util.glsl"
-#include "./lib/atmosphere.glsl"
 
 
 ///////////////////////////////////////////////////////////
@@ -64,8 +63,9 @@ uniform highp vec4 ColorBased;
 uniform highp vec4 GlintColor;
 uniform highp vec4 OverlayColor;
 uniform highp vec4 MatColor;
+#if MULTI_COLOR_TINT__ON
 uniform highp vec4 MultiplicativeTintColor;
-
+#endif
 uniform highp vec4 DirectionalLightSourceWorldSpaceDirection;
 uniform highp vec4 TileLightIntensity;
 uniform highp vec4 SunDir;
@@ -87,6 +87,7 @@ SAMPLER2D_HIGHP_AUTOREG(s_GlintTexture);
 
 SAMPLER2D_HIGHP_AUTOREG(s_PreviousFrameAverageLuminance);
 
+#include "./lib/atmosphere.glsl"
 #include "./lib/materials.glsl"
 #include "./lib/shadow.glsl"
 #include "./lib/bsdf.glsl"

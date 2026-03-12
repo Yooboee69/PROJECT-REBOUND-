@@ -8,11 +8,11 @@ uniform vec4 SubPixelOffset;
 vec4 jitterVertexPosition(vec3 worldPos) {
     mat4 offsetProj = u_proj;
 #if BGFX_SHADER_LANGUAGE_GLSL
-    offsetProj[2][0] += SubPixelOffset.x;
-    offsetProj[2][1] -= SubPixelOffset.y;
+    offsetProj[2].x += SubPixelOffset.x;
+    offsetProj[2].y -= SubPixelOffset.y;
 #else
-    offsetProj[0][2] += SubPixelOffset.x;
-    offsetProj[1][2] -= SubPixelOffset.y;
+    offsetProj[0].z += SubPixelOffset.x;
+    offsetProj[1].z -= SubPixelOffset.y;
 #endif
     return mul(offsetProj, mul(u_view, vec4(worldPos, 1.0)));
 }

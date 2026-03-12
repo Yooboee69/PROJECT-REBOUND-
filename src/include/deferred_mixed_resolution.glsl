@@ -100,6 +100,9 @@ void main() {
     vec4 data = texture2D(s_ColorMetalnessSubsurface, v_texcoord0);
     float metalness = unpackMetalness(data.a);
     float subsurface = unpackSubsurface(data.a);
+    //fade subsurface value to 0.0 starting at 115 blocks far away from the player
+    //to fallback it's shading to use lambertian diffuse in the case shadow map can't conver it
+    //VV's shadowmap draw distance is 128 blocks far for all platforms and settings
     subsurface *= linearstep(120.0, 115.0, length(worldPos));
     vec3 albedo = pow(data.rgb, vec3_splat(2.2)) * 2.0;
     vec3 f0 = mix(vec3_splat(0.02), albedo, metalness);

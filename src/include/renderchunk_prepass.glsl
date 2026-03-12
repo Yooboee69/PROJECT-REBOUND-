@@ -1,4 +1,3 @@
-#include "./lib/common.glsl"
 #include "./lib/taau_util.glsl"
 
 
@@ -68,6 +67,7 @@ void main() {
 
 SAMPLER2D_HIGHP_AUTOREG(s_SeasonsTexture);
 
+#include "./lib/common.glsl"
 #include "./lib/materials.glsl"
 
 void main() {
