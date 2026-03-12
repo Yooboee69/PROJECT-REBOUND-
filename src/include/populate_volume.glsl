@@ -26,7 +26,7 @@ IMAGE2D_ARRAY_WR_AUTOREG(s_CurrentLightingBuffer, rgba16f);
 #include "./lib/atmosphere.glsl"
 #include "./lib/froxel_util.glsl"
 
-#define POPULATE_VOLUME_MATERIAL
+#define MATERIAL_POPULATE_VOLUME
 #include "./lib/clouds.glsl"
 
 float calcFPShadow(vec3 worldPos){

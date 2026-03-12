@@ -78,7 +78,7 @@ void main() {
     inputColor = max(inputColor, vec3_splat(0.0));
 
 
-    // from deobfuscated vanilla materials, for now just leave it there
+    // deobfuscated from vanilla material, for now just leave it like this
     if (TonemapParams0.b > 0.0) {
         float preExposureLum = texture2D(s_PreExposureLuminance, vec2_splat(0.5)).r;
         inputColor = inputColor / vec3_splat((MIDDLE_GRAY / preExposureLum) + EPSILON);

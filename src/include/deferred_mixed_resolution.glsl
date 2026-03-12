@@ -97,13 +97,11 @@ void main() {
     //materials data from gbuffers
     uvec4 data16 = texelFetch(s_EmissiveAmbientLinearRoughness, ivec2(gl_FragCoord.xy), 0) & 0xFFFFu;
     float roughness = float(data16.r >> 8) / 255.0;
+    float emssive = float(data16.r & 0xFFu) / 255.0;
     vec4 data = texture2D(s_ColorMetalnessSubsurface, v_texcoord0);
     float metalness = unpackMetalness(data.a);
     float subsurface = unpackSubsurface(data.a);
-    //fade subsurface value to 0.0 starting at 115 blocks far away from the player
-    //to fallback it's shading to use lambertian diffuse in the case shadow map can't conver it
-    //VV's shadowmap draw distance is 128 blocks far for all platforms and settings
-    subsurface *= linearstep(120.0, 115.0, length(worldPos));
+    subsurface *= linearstep(55.0, 50.0, length(worldPos));
     vec3 albedo = pow(data.rgb, vec3_splat(2.2)) * 2.0;
     vec3 f0 = mix(vec3_splat(0.02), albedo, metalness);
     vec3 normal = octToNdirSnorm(texture2D(s_Normal, v_texcoord0).rg);
@@ -123,7 +121,8 @@ void main() {
     }
 
     vec3 bsdf = BSDF(normal, DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, albedo, shadowMap, metalness, roughness, subsurface);
-    if (depth < 1.0) gl_FragData[0].rgb = v_absorbColor * bsdf;
+    vec3 alwaysLit = albedo * emssive * EMISSIVE_MATERIAL_INTENSITY;
+    if (depth < 1.0) gl_FragData[0].rgb = v_absorbColor * bsdf + alwaysLit;
 }
 
 #endif //DIRECTIONAL_LIGHTING_PASS
@@ -175,8 +174,6 @@ uniform highp vec4 WorldOrigin;
 SAMPLER2D_HIGHP_AUTOREG(s_SceneDepth);
 SAMPLER2D_HIGHP_AUTOREG(s_DiffuseLighting);
 SAMPLER2D_HIGHP_AUTOREG(s_SpecularLighting);
-SAMPLER2D_HIGHP_AUTOREG(s_ColorMetalnessSubsurface);
-USAMPLER2D_AUTOREG(s_EmissiveAmbientLinearRoughness);
 SAMPLER2D_HIGHP_AUTOREG(s_PreviousFrameAverageLuminance);
 
 #include "./lib/materials.glsl"
@@ -202,15 +199,7 @@ void main() {
 
     bool isTerrain = depth < 1.0;
 
-    if (isTerrain) {
-        outColor = texture2D(s_DiffuseLighting, v_texcoord0).rgb;
-
-        //always lit
-        vec3 albedo = pow(texture2D(s_ColorMetalnessSubsurface, v_texcoord0).rgb, vec3_splat(2.2)) * 2.0;
-        uvec4 data16 = texelFetch(s_EmissiveAmbientLinearRoughness, ivec2(gl_FragCoord.xy), 0) & 0xFFFFu;
-        float emssive = float(data16.r & 0xFFu) / 255.0;
-        outColor += albedo * emssive * EMISSIVE_MATERIAL_INTENSITY;
-    }
+    if (isTerrain) outColor = texture2D(s_DiffuseLighting, v_texcoord0).rgb;
 
     if (int(DimensionID.r) == 0) {
         vec3 scattering = GetAtmosphere(worldDir, 1e10, SunDir.xyz, vec3_splat(1.0)) * SUN_MAX_ILLUMINANCE;

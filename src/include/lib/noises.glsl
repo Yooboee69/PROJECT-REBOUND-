@@ -12,7 +12,7 @@ float worleyR(vec2 uv) {
     uv -= 0.5;
     vec2 i = floor(uv);
     vec2 f = fract(uv);
-#ifdef POPULATE_VOLUME_MATERIAL
+#ifdef MATERIAL_POPULATE_VOLUME
     vec4 t = textureGather(s_CausticsTexture, vec3(fract((i + 0.5) * 0.00390625), 3.0), 0);
 #else
     vec4 t = textureGather(s_CausticsTexture, vec3((i + 0.5) * 0.00390625, 3.0), 0);
@@ -24,7 +24,7 @@ float worleyG(vec2 uv) {
     uv -= 0.5;
     vec2 i = floor(uv);
     vec2 f = fract(uv);
-#ifdef POPULATE_VOLUME_MATERIAL
+#ifdef MATERIAL_POPULATE_VOLUME
     vec4 t = textureGather(s_CausticsTexture, vec3(fract((i + 0.5) * 0.00390625), 3.0), 1);
 #else
     vec4 t = textureGather(s_CausticsTexture, vec3((i + 0.5) * 0.00390625, 3.0), 1);
@@ -49,7 +49,7 @@ float perlinWorleyR(vec2 uv) {
     uv -= 0.5;
     vec2 i = floor(uv);
     vec2 f = fract(uv);
-#ifdef POPULATE_VOLUME_MATERIAL
+#ifdef MATERIAL_POPULATE_VOLUME
     vec4 t = textureGather(s_CausticsTexture, vec3(fract((i + 0.5) * 0.00390625), 2.0), 0);
 #else
     vec4 t = textureGather(s_CausticsTexture, vec3((i + 0.5) * 0.00390625, 2.0), 0);
@@ -61,7 +61,7 @@ float perlinWorleyG(vec2 uv) {
     uv -= 0.5;
     vec2 i = floor(uv);
     vec2 f = fract(uv);
-#ifdef POPULATE_VOLUME_MATERIAL
+#ifdef MATERIAL_POPULATE_VOLUME
     vec4 t = textureGather(s_CausticsTexture, vec3(fract((i + 0.5) * 0.00390625), 2.0), 1);
 #else
     vec4 t = textureGather(s_CausticsTexture, vec3((i + 0.5) * 0.00390625, 2.0), 1);
@@ -87,7 +87,7 @@ float valueNoise(vec2 uv) {
     vec2 i = floor(uv);
     vec2 f = fract(uv);
     f = f * f * (3.0 - 2.0 * f);
-#ifdef POPULATE_VOLUME_MATERIAL
+#ifdef MATERIAL_POPULATE_VOLUME
     vec4 t = textureGather(s_CausticsTexture, vec3(fract((i + 0.5) * 0.00390625), 0.0), 0);
 #else
     vec4 t = textureGather(s_CausticsTexture, vec3((i + 0.5) * 0.00390625, 0.0), 0);
