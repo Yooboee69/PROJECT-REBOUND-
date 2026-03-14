@@ -2,19 +2,20 @@
 #define COMMON_INCLUDE
 
 #define EPSILON 0.0001
-#define PI 3.14159265358979
+
+#define PI      3.14159265358979
 #define HALF_PI 1.57079632679489
 
 #define LUMA_REC709 vec3(0.2126, 0.7152, 0.0722)
 #define MIDDLE_GRAY 0.18
 
-#define BLOCK_LIGHT_COLOR vec3(1.0, 0.5, 0.1)
-#define BLOCK_LIGHT_INTENSITY 5.0
-#define SKY_AMBIENT_INTENSITY 2.0
+#define BLOCK_LIGHT_COLOR           vec3(1.0, 0.5, 0.1)
+#define BLOCK_LIGHT_INTENSITY       5.0
+#define SKY_AMBIENT_INTENSITY       2.0
 #define EMISSIVE_MATERIAL_INTENSITY 50.0
-#define MIN_AMBIENT_LIGHT 0.001
+#define MIN_AMBIENT_LIGHT           0.001
 
-#define SUN_MAX_ILLUMINANCE 100.0
+#define SUN_MAX_ILLUMINANCE  100.0
 #define MOON_MAX_ILLUMINANCE 0.1
 
 #define WATER_EXTINCTION_COEFFICIENTS vec3(0.5, 0.35, 0.3)
@@ -56,14 +57,14 @@ float sampleDepth(highp sampler2D depthtex, vec2 uv) {
 #endif
 }
 
-//https://github.com/bWFuanVzYWth/OriginShader/blob/main/OriginShader/shaders/glsl/shaderfunction.lin
-float ux2l(float l) { return 1.0 / (l * l); }
-float uv1x2lig(float uv1x) {
-    float l = clamp(1.0 - uv1x, 0.0, 1.0) * 16.0 + 0.5;
-    return max(0.0, ux2l(l) - ux2l(15.0) * (1.0 - uv1x));
+float calcLightFalloff(float blocklm) {
+    float ilm = saturate(1.0 - blocklm);
+    float dist = ilm * 16.0 + 0.5;
+    float intensity = 1.0 / (dist * dist);
+    return max(0.0, intensity - 0.0044444 * ilm);
 }
 
-float PhaseM(float costh, float g) {
+float PhaseHG(float costh, float g) {
     float num = (1.0 - g * g) * (1.0 + costh * costh);
     float denom = (2.0 + g * g) * pow((1.0 + g * g - 2.0 * g * costh), 1.5);
     return 3.0 / (8.0 * PI) * num / denom;
