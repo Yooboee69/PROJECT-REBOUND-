@@ -43,8 +43,10 @@ void main() {
     vec4 transmittance;
     vec3 unused = GetAtmosphere(worldDir, 1e10, 1.0, vec3_splat(0.0), vec3_splat(1.0), transmittance);
 
-    //simple sun, not physical, wihtout limb darkening, why not using dot()? idk why its nothing show
-    vec3 outColor = smoothstep(0.0175, 0.0125, distance(worldDir, SunDir.xyz)) * transmittance.rgb * transmittance.rgb * 10000.0;
+    //sun without limb darkening
+    float costh = dot(worldDir, SunDir.xyz);
+    float disc = sqrt(smoothstep(cos(0.00436 * 4.0), 1.0, costh));
+    vec3 outColor = disc * transmittance.rgb * transmittance.rgb * 10000.0;
 
 #ifdef VOLUMETRIC_CLOUDS_ENABLED
     float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
@@ -56,7 +58,8 @@ void main() {
     //mask moon position and sample the texture
     if (dot(worldDir, MoonDir.xyz) > 0.0) {
         vec3 tex = texture2D(s_SunMoonTexture, v_texcoord0).rgb;
-        outColor = tex * luminance(tex) * transmittance.rgb;
+        float texlum = luminance(tex);
+        outColor = texlum * texlum * transmittance.rgb;
 #ifdef VOLUMETRIC_CLOUDS_ENABLED
         outColor *= cloudTransmittance;
 #endif

@@ -120,8 +120,8 @@ void main() {
     shadowMap = min(shadowMap, cloudShadow);
 #endif
 
-    vec3 absorbColor = GetLightTransmittance(SunDir.xyz) * PI * M_EXPOSURE_MUL * SUN_MAX_ILLUMINANCE;
-    absorbColor += GetLightTransmittance(MoonDir.xyz) * PI * M_EXPOSURE_MUL * MOON_MAX_ILLUMINANCE;
+    vec3 absorbColor = GetSunTransmittance(SunDir.xyz) * PI * M_EXPOSURE_MUL * SUN_MAX_ILLUMINANCE;
+    absorbColor += GetMoonTransmittance(MoonDir.xyz) * PI * M_EXPOSURE_MUL * MOON_MAX_ILLUMINANCE;
     //night-sunrise sunset-night transition fade
     absorbColor *= smoothstep(0.0, 0.2, DirectionalLightSourceWorldSpaceDirection.y);
 
@@ -157,7 +157,7 @@ void main() {
     vec4 scatterExt = vec4(airScattering, 1.0 - tsmLum) * altitudeMod;
 
     // water scattering
-    vec3 waterScattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * PhaseM(cosTheta, 0.6) * shadowMap;
+    vec3 waterScattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * PhaseHG(cosTheta, 0.6) * shadowMap;
     if (CameraUnderwaterAndWaterSurfaceBiasAndFalloff.x > 0.0) {
         scatterExt = vec4(waterScattering * luminance(absorbColor) * 0.05, 0.0);
     }

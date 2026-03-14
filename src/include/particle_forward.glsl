@@ -28,8 +28,8 @@ void main(){
     float sunFade = smoothstep(0.0, 0.1, SunDir.y);
     float moonFade = smoothstep(0.0, 0.1, MoonDir.y);
 
-    v_absorbColor = GetLightTransmittance(SunDir.xyz) * sunFade * PI * M_EXPOSURE_MUL * SUN_MAX_ILLUMINANCE;
-    v_absorbColor += GetLightTransmittance(MoonDir.xyz) * moonFade * PI * M_EXPOSURE_MUL * MOON_MAX_ILLUMINANCE;
+    v_absorbColor = GetSunTransmittance(SunDir.xyz) * sunFade * PI * M_EXPOSURE_MUL * SUN_MAX_ILLUMINANCE;
+    v_absorbColor += GetMoonTransmittance(MoonDir.xyz) * moonFade * PI * M_EXPOSURE_MUL * MOON_MAX_ILLUMINANCE;
     v_scatterColor = GetAtmosphere(vec3(0.0, 1.0, 0.0), 1e10, SunDir.xyz, vec3_splat(1.0)) * SUN_MAX_ILLUMINANCE;
     v_scatterColor += GetAtmosphere(vec3(0.0, 1.0, 0.0), 1e10, MoonDir.xyz, vec3_splat(1.0)) * MOON_MAX_ILLUMINANCE;
 
@@ -101,8 +101,8 @@ void main() {
     vec3 f0 = mix(vec3_splat(0.02), albedo.rgb, mers.r);
 
     //ambient lighting
-    vec3 blockAmbient = BLOCK_LIGHT_COLOR * uv1x2lig(v_ambientLight.r) * BLOCK_LIGHT_INTENSITY;
-    vec3 skyAmbient = mix(pow(v_ambientLight.g, 3.0), pow(v_ambientLight.g, 5.0), CameraLightIntensity.g) * (v_scatterColor + v_absorbColor * 0.01) * SKY_AMBIENT_INTENSITY;
+    vec3 blockAmbient = BLOCK_LIGHT_COLOR * calcLightFalloff(v_ambientLight.r) * BLOCK_LIGHT_INTENSITY;
+    vec3 skyAmbient = mix(pow(v_ambientLight.g, 3.0), pow(v_ambientLight.g, 5.0), CameraLightIntensity.g) * (v_scatterColor + v_absorbColor / SUN_MAX_ILLUMINANCE) * SKY_AMBIENT_INTENSITY;
     vec3 outColor = albedo.rgb * (1.0 - mers.r) * max(blockAmbient + skyAmbient, vec3_splat(MIN_AMBIENT_LIGHT));
 
     //directional lighting

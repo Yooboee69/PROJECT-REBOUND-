@@ -93,7 +93,7 @@ void main() {
     vec2 lighting = calculateOcclusionAndLightingUV(v_occlusionUV, v_occlusionHeight);
     albedo.rgb = pow(albedo.rgb, vec3_splat(2.2));
 
-    vec3 blockAmbient = BLOCK_LIGHT_COLOR * uv1x2lig(lighting.r) * BLOCK_LIGHT_INTENSITY;
+    vec3 blockAmbient = BLOCK_LIGHT_COLOR * calcLightFalloff(lighting.r) * BLOCK_LIGHT_INTENSITY;
     vec3 outColor = albedo.rgb * max(blockAmbient, vec3_splat(0.05));
     outColor = preExposeLighting(outColor, texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r);
 
