@@ -21,9 +21,15 @@ void main() {
     v_texcoord0 = a_texcoord0;
 
 #if !DEPTH_ONLY_PASS && !DEPTH_ONLY_OPAQUE_PASS
-    uvec2 data16 = uvec2(round(a_texcoord1 * 65535.0));
+    uvec2 data16 = uvec2(a_texcoord1 * 65535.0);
+    uvec2 highByte = (data16 >> 8) & 0xFFu;
+    uvec2 lowByte = data16 & 0xFFu;
+    uvec2 mHighByte = highByte & 0xFFu;
+    float lintensity = a_normal.w * 0.5 + 0.5;
+    v_lightColor = vec3(mHighByte.x, lowByte.x, mHighByte.y) / 255.0 * lintensity * 6.0;
     v_lightmapUV = vec2(uvec2(data16.y >> 4, data16.y) & 15u) / 15.0;
-    v_pbrTextureId = int(a_texcoord4) & 0xFFFF;
+
+    v_pbrTextureId = a_texcoord4 & 0xFFFF;
     v_normal = mul(u_model[0], vec4(a_normal.xyz, 0.0)).xyz;
     v_tangent = mul(u_model[0], vec4(a_tangent.xyz, 0.0)).xyz;
     v_bitangent = mul(u_model[0], vec4(cross(a_normal.xyz, a_tangent.xyz) * a_tangent.w, 0.0)).xyz;
@@ -35,10 +41,28 @@ void main() {
     float sunFade = smoothstep(0.0, 0.1, SunDir.y);
     float moonFade = smoothstep(0.0, 0.1, MoonDir.y);
 
-    v_absorbColor = GetSunTransmittance(SunDir.xyz) * sunFade * PI * M_EXPOSURE_MUL * SUN_MAX_ILLUMINANCE;
-    v_absorbColor += GetMoonTransmittance(MoonDir.xyz) * moonFade * PI * M_EXPOSURE_MUL * MOON_MAX_ILLUMINANCE;
-    v_scatterColor = GetAtmosphere(vec3(0.0, 1.0, 0.0), 1e10, SunDir.xyz, vec3_splat(1.0)) * SUN_MAX_ILLUMINANCE;
-    v_scatterColor += GetAtmosphere(vec3(0.0, 1.0, 0.0), 1e10, MoonDir.xyz, vec3_splat(1.0)) * MOON_MAX_ILLUMINANCE;
+    v_absorbColor = GetSunTransmittance(SunDir.xyz) * sunFade * SUN_MAX_ILLUMINANCE;
+    v_absorbColor += GetMoonTransmittance(MoonDir.xyz) * moonFade * MOON_MAX_ILLUMINANCE;
+
+    AtmosphereParams sunAtmParams;
+    sunAtmParams.rayStart = vec3(0.0, 10.0, 0.0);
+    sunAtmParams.rayDir = vec3(0.0, 1.0, 0.0);
+    sunAtmParams.lightDir = SunDir.xyz;
+    sunAtmParams.rayLength = 1e10;
+    sunAtmParams.aerial = 1.0;
+    sunAtmParams.occlusion = 1.0;
+    sunAtmParams.mieMod = 1.0;
+    v_scatterColor = GetAtmosphere(sunAtmParams) * SUN_MAX_ILLUMINANCE;
+
+    AtmosphereParams moonAtmParams;
+    moonAtmParams.rayStart = vec3(0.0, 10.0, 0.0);
+    moonAtmParams.rayDir = vec3(0.0, 1.0, 0.0);
+    moonAtmParams.lightDir = MoonDir.xyz;
+    moonAtmParams.rayLength = 1e10;
+    moonAtmParams.aerial = 1.0;
+    moonAtmParams.occlusion = 1.0;
+    moonAtmParams.mieMod = 1.0;
+    v_scatterColor += GetAtmosphere(moonAtmParams) * MOON_MAX_ILLUMINANCE;
 
     if (int(DimensionID.r) != 0) {
         v_absorbColor = vec3_splat(0.0);
@@ -76,6 +100,7 @@ uniform highp vec4 FogColor;
 uniform highp vec4 RenderChunkFogAlpha;
 uniform highp vec4 Time;
 uniform highp vec4 WorldOrigin;
+uniform highp vec4 TimeOfDay;
 
 SAMPLER2D_HIGHP_AUTOREG(s_PreviousFrameAverageLuminance);
 
@@ -110,14 +135,19 @@ void main() {
     float vanillaAO = colorAvg(v_color0.rgb);
 
     albedo.rgb *= nColorAvg;
-    albedo.rgb = pow(albedo.rgb, vec3_splat(2.2)) * 2.0;
+    albedo.rgb = toLinear(albedo.rgb) * 2.0;
 
     vec3 f0 = mix(vec3_splat(0.02), albedo.rgb, mers.r);
 
     //ambient lighting
-    vec3 blockAmbient = BLOCK_LIGHT_COLOR * calcLightFalloff(v_lightmapUV.r) * BLOCK_LIGHT_INTENSITY;
-    vec3 skyAmbient = (v_scatterColor + v_absorbColor / SUN_MAX_ILLUMINANCE) * mix(pow(v_lightmapUV.g, 3.0), pow(v_lightmapUV.g, 5.0), CameraLightIntensity.y) * SKY_AMBIENT_INTENSITY;
-    vec3 outColor = albedo.rgb * (1.0 - mers.r) * max(blockAmbient + skyAmbient * vanillaAO * vanillaAO, vec3_splat(MIN_AMBIENT_LIGHT));
+    vec3 blockAmbient = v_lightColor;
+    if ((blockAmbient.r + blockAmbient.g + blockAmbient.b) <= 0.0 && v_lightmapUV.r > 0.0) {
+        float blm = v_lightmapUV.r * v_lightmapUV.r;
+        blockAmbient = saturate(vec3(blm, blm * ((blm * 0.6 + 0.4) * 0.6 + 0.4), blm * ((blm * blm * 0.6) + 0.4)));
+    }
+    vec3 skyAmbient = (v_scatterColor + v_absorbColor / SUN_MAX_ILLUMINANCE) * mix(pow(v_lightmapUV.g, 3.0), pow(v_lightmapUV.g, 5.0), CameraLightIntensity.g) * SKY_AMBIENT_INTENSITY;
+    vec3 ambientLight = max(blockAmbient + skyAmbient * vanillaAO * vanillaAO, vec3_splat(MIN_AMBIENT_LIGHT)) ;
+    vec3 outColor = ambientLight * albedo.rgb * (1.0 - mers.r);
 
     //directional lighting
     vec3 shadowMap = calcShadowMap(v_worldPos, normal).rgr;
@@ -138,27 +168,34 @@ void main() {
     outColor += albedo.rgb * mers.g * EMISSIVE_MATERIAL_INTENSITY;
 
     float worldDist = length(v_worldPos);
-    //water extinction
-    bool isCameraInsideWater = CameraIsUnderwater.r > 0.0 && CausticsParameters.a > 0.0;
-    if (isCameraInsideWater) outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
 
-    float wDistNorm = worldDist / FogAndDistanceControl.z;
+    //water extinction
+    bool isCameraInsideWater = CameraIsUnderwater.r > 0.0;
+    bool isNeedSkyReflection = !isCameraInsideWater && int(DimensionID.r) != 0;
+
     if (int(DimensionID.r) == 0) {
+        //reflections
+        outColor += indirectSpecular(f0, worldDir, normal, blockAmbient, mers.b, mers.r, v_lightmapUV.g, isNeedSkyReflection);
+
 #ifdef VOLUMETRIC_CLOUDS_ENABLED
         float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
-        applyCumulusClouds(outColor, v_scatterColor, v_absorbColor, worldDir, wDistNorm, dither, true);
+        applyCumulusClouds(outColor, v_scatterColor, v_absorbColor, worldDir, worldDist, dither, true);
 #endif
+
+        //underwater extinction and scattering
+        if (isCameraInsideWater) {
+            outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
+            vec3 wscattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * luminance(v_absorbColor) * CameraLightIntensity.y;
+            outColor = mix(outColor, wscattering, 0.5);
+        }
 
         vec3 projPos = v_clipPos.xyz / v_clipPos.w;
         applyVolumetricFog(outColor, projPos);
     } else {
+        float wDistNorm = worldDist / FogAndDistanceControl.z;
         float borderFog = saturate((wDistNorm + RenderChunkFogAlpha.x - FogAndDistanceControl.x) * FogAndDistanceControl.y);
         outColor = mix(outColor, pow(FogColor.rgb, vec3_splat(2.2)), borderFog);
     }
-
-    //relectione
-    bool isNeedSkyReflection = !isCameraInsideWater && int(DimensionID.r) != 0;
-    outColor += indirectSpecular(f0, worldDir, normal, mers.b, mers.r, v_lightmapUV, isNeedSkyReflection);
 
     outColor = preExposeLighting(outColor, texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r);
 

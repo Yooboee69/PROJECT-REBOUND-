@@ -29,10 +29,28 @@ void main() {
     float sunFade = smoothstep(0.0, 0.1, SunDir.y);
     float moonFade = smoothstep(0.0, 0.1, MoonDir.y);
 
-    v_absorbColor = GetSunTransmittance(SunDir.xyz) * sunFade * PI * M_EXPOSURE_MUL * SUN_MAX_ILLUMINANCE;
-    v_absorbColor += GetMoonTransmittance(MoonDir.xyz) * moonFade * PI * M_EXPOSURE_MUL * MOON_MAX_ILLUMINANCE;
-    v_scatterColor = GetAtmosphere(vec3(0.0, 1.0, 0.0), 1e10, SunDir.xyz, vec3_splat(1.0)) * SUN_MAX_ILLUMINANCE;
-    v_scatterColor += GetAtmosphere(vec3(0.0, 1.0, 0.0), 1e10, MoonDir.xyz, vec3_splat(1.0)) * MOON_MAX_ILLUMINANCE;
+    v_absorbColor = GetSunTransmittance(SunDir.xyz) * sunFade * SUN_MAX_ILLUMINANCE;
+    v_absorbColor += GetMoonTransmittance(MoonDir.xyz) * moonFade * MOON_MAX_ILLUMINANCE;
+
+    AtmosphereParams sunAtmParams;
+    sunAtmParams.rayStart = vec3(0.0, 10.0, 0.0);
+    sunAtmParams.rayDir = vec3(0.0, 1.0, 0.0);
+    sunAtmParams.lightDir = SunDir.xyz;
+    sunAtmParams.rayLength = 1e10;
+    sunAtmParams.aerial = 1.0;
+    sunAtmParams.occlusion = 1.0;
+    sunAtmParams.mieMod = 1.0;
+    v_scatterColor = GetAtmosphere(sunAtmParams) * SUN_MAX_ILLUMINANCE;
+
+    AtmosphereParams moonAtmParams;
+    moonAtmParams.rayStart = vec3(0.0, 10.0, 0.0);
+    moonAtmParams.rayDir = vec3(0.0, 1.0, 0.0);
+    moonAtmParams.lightDir = MoonDir.xyz;
+    moonAtmParams.rayLength = 1e10;
+    moonAtmParams.aerial = 1.0;
+    moonAtmParams.occlusion = 1.0;
+    moonAtmParams.mieMod = 1.0;
+    v_scatterColor += GetAtmosphere(moonAtmParams) * MOON_MAX_ILLUMINANCE;
 
     if (int(DimensionID.r) != 0) {
         v_absorbColor = vec3_splat(0.0);
@@ -52,6 +70,7 @@ void main() {
 #if BGFX_SHADER_TYPE_FRAGMENT
 uniform highp vec4 CameraLightIntensity;
 uniform highp vec4 DirectionalLightSourceWorldSpaceDirection;
+uniform highp vec4 BlockLightColor;
 uniform highp vec4 TileLightIntensity;
 uniform highp vec4 SunDir;
 uniform highp vec4 MoonDir;
@@ -63,6 +82,8 @@ uniform highp vec4 MERSUniforms;
 uniform highp vec4 Time;
 uniform highp vec4 WorldOrigin;
 uniform highp vec4 FogAndDistanceControl;
+uniform highp vec4 RenderChunkFogAlpha;
+uniform highp vec4 FogColor;
 
 SAMPLER2D_HIGHP_AUTOREG(s_PreviousFrameAverageLuminance);
 #if USE_TEXTURES__ON
@@ -83,13 +104,18 @@ void main() {
     if (albedo.a < 0.5) discard;
 #endif
     albedo *= CurrentColor * v_color0;
-    albedo.rgb = pow(albedo.rgb, vec3_splat(2.2));
+    albedo.rgb = toLinear(albedo.rgb);
     vec3 f0 = mix(vec3_splat(0.02), albedo.rgb, MERSUniforms.r);
 
     //ambient lighting
-    vec3 blockAmbient = BLOCK_LIGHT_COLOR * calcLightFalloff(TileLightIntensity.r) * BLOCK_LIGHT_INTENSITY;
-    vec3 skyAmbient = mix(pow(TileLightIntensity.g, 3.0), pow(TileLightIntensity.g, 5.0), CameraLightIntensity.g) * (v_scatterColor + v_absorbColor / SUN_MAX_ILLUMINANCE) * SKY_AMBIENT_INTENSITY;
-    vec3 outColor = albedo.rgb * (1.0 - MERSUniforms.r) * max(blockAmbient + skyAmbient, vec3_splat(MIN_AMBIENT_LIGHT));
+    vec3 blockAmbient = BlockLightColor.rgb;
+    if ((blockAmbient.r + blockAmbient.g + blockAmbient.b) <= 0.0 && TileLightIntensity.r > 0.0) {
+        float blm = TileLightIntensity.r * TileLightIntensity.r;
+        blockAmbient = saturate(vec3(blm, blm * ((blm * 0.6 + 0.4) * 0.6 + 0.4), blm * ((blm * blm * 0.6) + 0.4)));
+    }
+    vec3 skyAmbient = (v_scatterColor + v_absorbColor / SUN_MAX_ILLUMINANCE) * mix(pow(TileLightIntensity.g, 3.0), pow(TileLightIntensity.g, 5.0), CameraLightIntensity.g) * SKY_AMBIENT_INTENSITY;
+    vec3 ambientLight = max(blockAmbient + skyAmbient, vec3_splat(MIN_AMBIENT_LIGHT));
+    vec3 outColor = ambientLight * albedo.rgb * (1.0 - MERSUniforms.r);
 
     //directional lighting
     vec3 shadowMap = calcShadowMap(v_worldPos, normal).rgr;
@@ -109,22 +135,34 @@ void main() {
     //always lit
     outColor += albedo.rgb * MERSUniforms.g * EMISSIVE_MATERIAL_INTENSITY;
 
+    float worldDist = length(v_worldPos);
+
+    bool isCameraInsideWater = CameraIsUnderwater.r > 0.0 && CausticsParameters.a > 0.0;
+    bool isNeedSkyReflection = !isCameraInsideWater && int(DimensionID.r) != 0;
+
+    if (int(DimensionID.r) == 0) {
+        //reflections
+        outColor += indirectSpecular(f0, worldDir, normal, blockAmbient, MERSUniforms.b, MERSUniforms.r, TileLightIntensity.g, isNeedSkyReflection);
+
 #ifdef VOLUMETRIC_CLOUDS_ENABLED
-    float wDistNorm = length(v_worldPos) / FogAndDistanceControl.z;
-    float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
-    applyCumulusClouds(outColor, v_scatterColor, v_absorbColor, worldDir, wDistNorm, dither, true);
+        float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
+        applyCumulusClouds(outColor, v_scatterColor, v_absorbColor, worldDir, worldDist, dither, true);
 #endif
 
-    //water extinctiion
-    bool isCameraInsideWater = CameraIsUnderwater.r > 0.0 && CausticsParameters.a > 0.0;
-    if (isCameraInsideWater) outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * length(v_worldPos));
+        //underwater extinction and scattering
+        if (isCameraInsideWater) {
+            outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
+            vec3 wscattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * luminance(v_absorbColor) * CameraLightIntensity.y;
+            outColor = mix(outColor, wscattering, 0.01);
+        }
 
-    vec3 projPos = v_clipPos.xyz / v_clipPos.w;
-    applyVolumetricFog(outColor, projPos);
-
-    //reflections
-    bool isNeedSkyReflection = !isCameraInsideWater && (int(DimensionID.r) != 0);
-    outColor += indirectSpecular(f0, worldDir, normal, MERSUniforms.b, MERSUniforms.r, TileLightIntensity.rg, isNeedSkyReflection);
+        vec3 projPos = v_clipPos.xyz / v_clipPos.w;
+        applyVolumetricFog(outColor, projPos);
+    } else {
+        float wDistNorm = worldDist / FogAndDistanceControl.z;
+        float borderFog = saturate((wDistNorm + RenderChunkFogAlpha.x - FogAndDistanceControl.x) * FogAndDistanceControl.y);
+        outColor = mix(outColor, pow(FogColor.rgb, vec3_splat(2.2)), borderFog);
+    }
 
     outColor = preExposeLighting(outColor, texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r);
 

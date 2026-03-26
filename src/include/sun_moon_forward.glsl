@@ -40,13 +40,21 @@ SAMPLER2DARRAY_AUTOREG(s_ScatteringBuffer);
 
 void main() {
     vec3 worldDir = normalize(v_worldPos);
+    AtmosphereParams atmParams;
+    atmParams.rayStart = vec3(0.0, 0.0, 0.0);
+    atmParams.rayDir = worldDir;
+    atmParams.lightDir = vec3_splat(0.0);
+    atmParams.rayLength = 1e10;
+    atmParams.aerial = 1.0;
+    atmParams.occlusion = 1.0;
+    atmParams.mieMod = 1.0;
     vec4 transmittance;
-    vec3 unused = GetAtmosphere(worldDir, 1e10, 1.0, vec3_splat(0.0), vec3_splat(1.0), transmittance);
+    vec3 unused = GetAtmosphere(atmParams, transmittance);
 
     //sun without limb darkening
     float costh = dot(worldDir, SunDir.xyz);
     float disc = sqrt(smoothstep(cos(0.00436 * 4.0), 1.0, costh));
-    vec3 outColor = disc * transmittance.rgb * transmittance.rgb * 10000.0;
+    vec3 outColor = disc * transmittance.rgb * transmittance.rgb * 25000.0;
 
 #ifdef VOLUMETRIC_CLOUDS_ENABLED
     float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
@@ -74,9 +82,7 @@ void main() {
     outColor = preExposeLighting(outColor, texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r);
     gl_FragColor = vec4(outColor, 1.0);
 #else
-    float fadeRange = (SkyProbeUVFadeParameters.x - SkyProbeUVFadeParameters.y) + EPSILON;
-    gl_FragColor.rgb = outColor;
-    gl_FragColor.a = (clamp(v_texcoord0.y, SkyProbeUVFadeParameters.y, SkyProbeUVFadeParameters.x) - SkyProbeUVFadeParameters.y) / fadeRange;
+    gl_FragColor = vec4_splat(0.0);
 #endif
 }
 #endif
