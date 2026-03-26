@@ -15,7 +15,8 @@ $output v_scatterColor
 $output v_worldPos
 $output v_clipPos
 $output v_texcoord0
-$output v_ambientLight
+$output v_coloredLighting
+$output v_vanillaLighting
 
 #include "bgfx_shader.sh"
 #include "particle_forward.glsl"

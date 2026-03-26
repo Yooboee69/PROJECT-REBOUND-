@@ -1,8 +1,4 @@
-#if BGFX_SHADER_LANGUAGE_GLSL
-float a_indices : BLENDINDICES;
-#else
 int a_indices : BLENDINDICES;
-#endif
 vec4 a_color0 : COLOR0;
 vec4 a_normal : NORMAL;
 vec3 a_position : POSITION;

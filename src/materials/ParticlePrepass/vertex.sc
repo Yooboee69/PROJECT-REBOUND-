@@ -11,13 +11,14 @@ $input i_data2
 $input i_data3
 #endif
 
-$output v_worldPos
+$output v_color0
 $output v_tangent
 $output v_bitangent
 $output v_normal
-$output v_color0
+$output v_worldPos
 $output v_texcoord0
-$output v_ambientLight
+$output v_coloredLighting
+$output v_vanillaLighting
 
 #include "bgfx_shader.sh"
 #include "particle_prepass.glsl"

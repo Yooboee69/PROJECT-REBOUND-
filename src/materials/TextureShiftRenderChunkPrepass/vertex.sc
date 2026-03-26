@@ -1,7 +1,6 @@
 $input a_color0
 $input a_texcoord1
 $input a_normal
-$input a_texcoord4
 $input a_position
 $input a_tangent
 $input a_texcoord0
@@ -13,13 +12,14 @@ $input i_data2
 $input i_data3
 #endif
 
-$output v_worldPos
+$output v_color0
 $output v_tangent
 $output v_bitangent
 $output v_normal
-$output v_color0
+$output v_worldPos
 $output v_texcoord0
 $output v_lightmapUV
+$output v_lightColor
 $output v_textureShift
 
 #include "bgfx_shader.sh"

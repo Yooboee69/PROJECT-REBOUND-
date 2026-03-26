@@ -9,10 +9,11 @@ vec4 i_data1 : TEXCOORD7;
 vec4 i_data2 : TEXCOORD6;
 vec4 i_data3 : TEXCOORD5;
 
-vec3 v_worldPos : TEXCOORD2;
+vec4 v_color0 : COLOR0;
 vec3 v_tangent : TANGENT;
 vec3 v_bitangent : BITANGENT;
 vec3 v_normal : NORMAL;
-vec4 v_color0 : COLOR0;
-vec2 v_texcoord0 : TEXCOORD0;
-vec2 v_ambientLight : TEXCOORD1;
+vec3 v_worldPos : TEXCOORD0;
+vec2 v_texcoord0 : TEXCOORD1;
+vec3 v_coloredLighting : TEXCOORD2;
+vec2 v_vanillaLighting : TEXCOORD3;
