@@ -1,4 +1,4 @@
-// original vibrant visual's bloom, modified to remove black squares bug
+// deobfuscated from vanilla material and modified to remove black squares bug
 
 ///////////////////////////////////////////////////////////
 // VERTEX SHADER
