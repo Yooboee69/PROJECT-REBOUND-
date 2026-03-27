@@ -229,7 +229,8 @@ void main() {
     } else {
         float wDistNorm = worldDist / FogAndDistanceControl.z;
         float borderFog = saturate((wDistNorm + RenderChunkFogAlpha.x - FogAndDistanceControl.x) * FogAndDistanceControl.y);
-        outColor = mix(outColor, pow(FogColor.rgb, vec3_splat(2.2)), borderFog);
+        vec3 linFogColor = toLinear(FogColor.rgb);
+        outColor = mix(outColor, linFogColor, borderFog);
     }
 
     outColor = preExposeLighting(outColor, texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r);

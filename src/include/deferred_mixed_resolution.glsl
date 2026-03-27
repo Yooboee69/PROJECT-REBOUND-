@@ -114,7 +114,7 @@ void main() {
     float metalness = unpackMetalness(data.a);
     float subsurface = unpackSubsurface(data.a);
     subsurface *= linearstep(55.0, 50.0, length(worldPos));
-    vec3 albedo = toLinear(data.rgb) * 2.0;
+    vec3 albedo = toLinear(data.rgb);
     vec3 f0 = mix(vec3_splat(0.02), albedo, metalness);
     vec3 normal = octToNdirSnorm(texture2D(s_Normal, v_texcoord0).rg);
 
@@ -159,7 +159,7 @@ void main() {
     float skyLightmap = float(data16.a & 0xFFu) / 255.0;
     float ao = float(data16.a >> 8) / 255.0; //baked ao from gbufffers
     vec4 data = texture2D(s_ColorMetalnessSubsurface, v_texcoord0);
-    vec3 albedo = toLinear(data.rgb) * 2.0;
+    vec3 albedo = toLinear(data.rgb);
     float metalness = unpackMetalness(data.a);
 
     vec3 blockAmbient = blightColor.rgb * blightColor.a * 6.0;
@@ -167,8 +167,7 @@ void main() {
     vec3 ambientLight = max(blockAmbient + skyAmbient, vec3_splat(MIN_AMBIENT_LIGHT)) * ao * ao;
     vec3 outColor = ambientLight * albedo * (1.0 - metalness);
 
-    //this will be added to directional lighting
-    gl_FragData[0] = vec4(outColor, 1.0);
+    gl_FragData[0] = vec4(outColor, 1.0); //this will be added to s_DiffuseLighting
     gl_FragData[1] = vec4_splat(0.0);
     gl_FragData[2] = vec4_splat(0.0);
 }
@@ -261,7 +260,8 @@ void main() {
         applyVolumetricFog(outColor, projPos);
     } else {
         float borderFog = saturate((wDistNorm + RenderChunkFogAlpha.x - FogAndDistanceControl.x) * FogAndDistanceControl.y);
-        outColor = mix(outColor, pow(FogColor.rgb, vec3_splat(2.2)), borderFog);
+        vec3 linFogColor = toLinear(FogColor.rgb);
+        outColor = mix(outColor, linFogColor, borderFog);
     }
 
     outColor = preExposeLighting(outColor, texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r);

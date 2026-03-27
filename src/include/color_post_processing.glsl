@@ -89,7 +89,7 @@ vec3 agxLook(vec3 val) {
     vec3 offset = vec3_splat(0.0);
     vec3 slope = vec3_splat(1.0);
     vec3 power = vec3_splat(1.3);
-    float sat = 1.05;
+    float sat = 1.0;
 
     // ASC CDL
     val = pow(val * slope + offset, power);

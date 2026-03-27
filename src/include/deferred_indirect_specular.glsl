@@ -67,7 +67,7 @@ void main() {
     float roughness = float(data16.r >> 8) / 255.0;
     vec4 data = texture2D(s_ColorMetalnessSubsurface, v_texcoord0);
     float metalness = unpackMetalness(data.a);
-    vec3 albedo = toLinear(data.rgb) * 2.0;
+    vec3 albedo = toLinear(data.rgb);
     vec3 f0 = mix(vec3_splat(0.02), albedo, metalness);
     vec3 normal = octToNdirSnorm(texture2D(s_Normal, v_texcoord0).rg);
 

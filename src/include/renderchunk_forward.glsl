@@ -135,7 +135,7 @@ void main() {
     float vanillaAO = colorAvg(v_color0.rgb);
 
     albedo.rgb *= nColorAvg;
-    albedo.rgb = toLinear(albedo.rgb) * 2.0;
+    albedo.rgb = toLinear(albedo.rgb);
 
     vec3 f0 = mix(vec3_splat(0.02), albedo.rgb, mers.r);
 
@@ -194,7 +194,8 @@ void main() {
     } else {
         float wDistNorm = worldDist / FogAndDistanceControl.z;
         float borderFog = saturate((wDistNorm + RenderChunkFogAlpha.x - FogAndDistanceControl.x) * FogAndDistanceControl.y);
-        outColor = mix(outColor, pow(FogColor.rgb, vec3_splat(2.2)), borderFog);
+        vec3 linFogColor = toLinear(FogColor.rgb);
+        outColor = mix(outColor, linFogColor, borderFog);
     }
 
     outColor = preExposeLighting(outColor, texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r);

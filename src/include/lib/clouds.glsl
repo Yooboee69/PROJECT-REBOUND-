@@ -94,6 +94,7 @@ float calcDirectScattering(vec3 samplePos, vec3 lightDir, float costh) {
     float stepSpace = CLOUD_THICKNESS / max(lightDir.y, 0.01) * 0.25;
     stepSpace = min(stepSpace, CLOUD_THICKNESS);
 
+    UNROLL
     for (int i = 0; i < 4; i++) {
         samplePos += lightDir * stepSpace * 0.1;
         shadow += calcCumulusModel(samplePos);
@@ -107,6 +108,7 @@ float calcDirectScattering(vec3 samplePos, vec3 lightDir, float costh) {
     float b = 0.75 + lMod * 0.5; //brightness
     float a = 1.0; //shadow
 
+    UNROLL
     for (int j = 0; j < 4; j++) {
         float forward = PhaseHG(costh, 0.7 * g);
         float backward = PhaseHG(costh, -0.1 * g);
@@ -136,6 +138,7 @@ vec4 calcCloud(vec3 worldDir, vec3 lightDir, float worldDist, float dither, bool
 
     if (isTerrain) setup.tMax = min(setup.tMax, worldDist);
 
+    LOOP
     for (int i = 0; i < setup.stepCounts; i++) {
         vec3 samplePos = rayOrigin + rayDir * (setup.tMin + dither * CLOUD_VOLUME_STEP_SPACE);
         float heightFraction = saturate((samplePos.y - CLOUD_HEIGHT) / CLOUD_THICKNESS);
@@ -175,6 +178,7 @@ float calcCloudTransmittanceOnly(vec3 worldDir, float worldDist, float dither, b
 
     float transmittance = 1.0;
 
+    LOOP
     for (int i = 0; i < setup.stepCounts; i++) {
         vec3 samplePos = rayOrigin + rayDir * (setup.tMin + dither * CLOUD_VOLUME_STEP_SPACE);
         float density = calcCumulusModel(samplePos);
@@ -192,6 +196,7 @@ float calcCloudShadow(vec3 position, vec3 lightDir, float hardness, CloudSetup s
 
     float shadowDensity = 0.0;
 
+    LOOP
     for (int i = 0; i < setup.stepCounts; i++) {
         vec3 samplePos = position + setup.tMin * lightDir;
         float density = calcCumulusModel(samplePos);
@@ -213,6 +218,7 @@ float calcCirrusModel(vec2 pos) {
     pos.x += sin(pos.y * 3.0) * 0.2;
     pos.y += Time.x * 0.005;
 
+    UNROLL
     for (int i = 0; i < 4; i++) {
         float dens = valueNoise(pos) * amplitude;
         tdensity += dens;
