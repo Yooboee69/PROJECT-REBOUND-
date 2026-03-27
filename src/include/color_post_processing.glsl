@@ -49,12 +49,12 @@ vec3 agxDefaultContrastApprox(vec3 x) {
 vec3 agx(vec3 val) {
     mat3 agx_mat = mtxFromCols(
         vec3(0.842479062253094, 0.0423282422610123, 0.0423756549057051),
-        vec3(0.0784335999999992,  0.878468636469772,  0.0784336),
+        vec3(0.0784335999999992, 0.878468636469772, 0.0784336),
         vec3(0.0792237451477643, 0.0791661274605434, 0.879142973793104)
     );
 
-    CONST(float) min_ev = -12.47393f;
-    CONST(float) max_ev = 4.026069f;
+    CONST(float) min_ev = -12.47393;
+    CONST(float) max_ev = 4.026069;
 
     // Input transform (inset)
     val = mul(agx_mat, val);
@@ -99,7 +99,7 @@ vec3 agxLook(vec3 val) {
 
 void main() {
     vec3 inputColor = texture2D(s_ColorTexture, v_texcoord0).rgb;
-    inputColor = max(inputColor, vec3_splat(0.0));
+    inputColor = max(inputColor, vec3_splat(0.0)); // make sure there's no negative value
 
     // deobfuscated from vanilla material
     if (TonemapParams0.b > 0.0) {
@@ -125,15 +125,16 @@ void main() {
         float t = (lumMin == lumMax) ? 0.5 : ((log2(refLuminance) + 3.0) - (log2(lumMin) + 3.0)) / ((log2(lumMax) + 3.0) - (log2(lumMin) + 3.0));
         exposureValue = texture2D(s_CustomExposureCompensation, vec2(t, 0.5)).r;
     }
+
     float exposure = (MIDDLE_GRAY / refLuminance) * exposureValue;
+    inputColor = inputColor * exposure;
 
-    vec3 outColor = inputColor * exposure;
-    vec4 rasterColor = texture2D(s_RasterizedColor, v_texcoord0);
-    outColor = mix(outColor, rasterColor.rgb, rasterColor.a);
+    vec4 rasterOverlay = texture2D(s_RasterizedColor, v_texcoord0);
+    inputColor = mix(inputColor, rasterOverlay.rgb, rasterOverlay.a);
 
-    outColor *= 2.0; //extra exposure
+    inputColor *= 2.0; //extra exposure
 
-    outColor = agx(outColor);
+    vec3 outColor = agx(inputColor);
     outColor = agxLook(outColor);
     outColor = agxEotf(outColor);
 
