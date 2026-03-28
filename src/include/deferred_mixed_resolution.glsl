@@ -73,8 +73,25 @@ void main() {
 #endif
 
 #if CAUSTICS_MULTIPLIER_PASS
+uniform highp vec4 DirectionalLightSourceWorldSpaceDirection;
+uniform highp vec4 Time;
+uniform highp vec4 WorldOrigin;
+
+SAMPLER2D_HIGHP_AUTOREG(s_SceneDepth);
+
+#include "./lib/water_wave.glsl"
+
+vec3 projToWorld(vec3 projPos) {
+    vec4 worldPos = mul(u_invViewProj, vec4(projPos, 1.0));
+    return worldPos.xyz / worldPos.w;
+}
+
 void main() {
-    gl_FragData[0] = vec4(0.0, 1.0, 1.0, 1.0);
+    float depth = sampleDepth(s_SceneDepth, v_texcoord0);
+    vec3 worldPos = projToWorld(vec3(v_projPos, depth));
+    vec3 position = worldPos - WorldOrigin.xyz;
+    float caustic = calcCaustic(position, DirectionalLightSourceWorldSpaceDirection.xyz, Time.x);
+    gl_FragData[0] = vec4(caustic, 1.0, 1.0, 1.0);
 }
 #endif
 
@@ -92,7 +109,6 @@ SAMPLER2D_HIGHP_AUTOREG(s_CausticsMultiplier);
 #include "./lib/materials.glsl"
 #include "./lib/shadow.glsl"
 #include "./lib/bsdf.glsl"
-#include "./lib/water_wave.glsl"
 #include "./lib/clouds.glsl"
 
 vec3 projToWorld(vec3 projPos) {
@@ -127,17 +143,14 @@ void main() {
     shadowMap.b = min(shadowMap.b, cloudShadow); //used for specular
 #endif
 
-    bool isWater = texture2D(s_CausticsMultiplier, v_texcoord0).r < 1.0;
-    if (isWater) {
-        float caustic = calcCaustic(position, DirectionalLightSourceWorldSpaceDirection.xyz, Time.x);
-        shadowMap = shadowMap * (0.5 + caustic * 1.5);
-    }
+    float caustic = texture2D(s_CausticsMultiplier, v_texcoord0).r;
+    shadowMap = shadowMap * (0.5 + caustic * 1.5);
 
     vec3 bsdf = BSDF(normal, DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, albedo, shadowMap, metalness, roughness, subsurface);
     vec3 alwaysLit = albedo * emssive * EMISSIVE_MATERIAL_INTENSITY;
 
     gl_FragData[0] = depth < 1.0 ? vec4(v_absorbColor * bsdf + alwaysLit, 1.0) : vec4_splat(0.0);
-    gl_FragData[1] = vec4(float(isWater), 0.0, 0.0, 1.0);
+    gl_FragData[1] = vec4_splat(0.0);
 }
 
 #endif //DIRECTIONAL_LIGHTING_PASS
@@ -157,14 +170,14 @@ void main() {
     uvec4 data16 = texelFetch(s_EmissiveAmbientLinearRoughness, ivec2(gl_FragCoord.xy), 0) & 0xFFFFu;
     vec4 blightColor = vec4(data16.g >> 8, data16.g & 0xFFu, data16.b >> 8, data16.b & 0xFFu) / 255.0;
     float skyLightmap = float(data16.a & 0xFFu) / 255.0;
-    float ao = float(data16.a >> 8) / 255.0; //baked ao from gbufffers
+    float vanillaAO = float(data16.a >> 8) / 255.0; //baked ambient occlusion from gbufffers
     vec4 data = texture2D(s_ColorMetalnessSubsurface, v_texcoord0);
     vec3 albedo = toLinear(data.rgb);
     float metalness = unpackMetalness(data.a);
 
     vec3 blockAmbient = blightColor.rgb * blightColor.a * 6.0;
     vec3 skyAmbient = (v_scatterColor + v_absorbColor / SUN_MAX_ILLUMINANCE) * mix(pow(skyLightmap, 3.0), pow(skyLightmap, 5.0), CameraLightIntensity.y) * SKY_AMBIENT_INTENSITY;
-    vec3 ambientLight = max(blockAmbient + skyAmbient, vec3_splat(MIN_AMBIENT_LIGHT)) * ao * ao;
+    vec3 ambientLight = max(blockAmbient * vanillaAO + skyAmbient * vanillaAO * vanillaAO, vec3_splat(MIN_AMBIENT_LIGHT));
     vec3 outColor = ambientLight * albedo * (1.0 - metalness);
 
     gl_FragData[0] = vec4(outColor, 1.0); //this will be added to s_DiffuseLighting
@@ -235,8 +248,6 @@ void main() {
 
     if (isTerrain) outColor = texture2D(s_DiffuseLighting, v_texcoord0).rgb;
 
-    bool isCameraInsideWater = CameraIsUnderwater.r > 0.0 && texture2D(s_SpecularLighting, v_texcoord0).r > 0.0;
-
     if (int(DimensionID.r) == 0) {
         //sky
         vec3 scattering = GetAtmosphere(sunAtmParams) * SUN_MAX_ILLUMINANCE;
@@ -251,7 +262,7 @@ void main() {
 #endif
 
         //underwater extinction and scattering
-        if (isCameraInsideWater) {
+        if (CameraIsUnderwater.r > 0.0) {
             outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
             vec3 wscattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * luminance(v_absorbColor) * CameraLightIntensity.y;
             outColor = mix(outColor, wscattering, 0.01);
