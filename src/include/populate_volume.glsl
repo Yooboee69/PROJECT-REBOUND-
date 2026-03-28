@@ -15,6 +15,7 @@ uniform highp vec4 JitterOffset;
 uniform highp vec4 MoonDir;
 uniform highp vec4 SunDir;
 uniform highp vec4 TemporalSettings;
+uniform highp vec4 CameraLightIntensity;
 
 SAMPLER2DARRAY_AUTOREG(s_ShadowCascades);
 SAMPLER2DARRAY_AUTOREG(s_PreviousLightingBuffer);
@@ -79,7 +80,6 @@ float calcMainShadow(vec3 worldPos){
 
     float shadowScale = CascadesParameters[cascade].x;
     uvShadow = uvShadow * shadowScale + vec2(0.0, 1.0 - shadowScale);
-
     return step(occluder, texture2DArrayLod(s_ShadowCascades, vec3(uvShadow, cascade), 0.0).r);
 }
 
@@ -137,7 +137,7 @@ void main() {
 
     float altitudeMod = clamp(HeightFogScaleBias.x * worldPos.y + HeightFogScaleBias.y, 0.0, 1.0);
     float tsmLum = saturate(luminance(transmittance.rgb));
-    vec4 scatterExt = vec4(airScattering, 1.0 - tsmLum) * altitudeMod;
+    vec4 scatterExt = vec4(airScattering, 1.0 - tsmLum) * altitudeMod * CameraLightIntensity.y;
 
     // water scattering
     float cost = dot(worldDir, DirectionalLightSourceWorldSpaceDirection.xyz);
@@ -147,7 +147,7 @@ void main() {
     }
 
     // cut scattering if out of render distance
-    scatterExt = (viewDist / FogAndDistanceControl.z) < 1.0 ? scatterExt * 2.0 : vec4_splat(0.0);
+    scatterExt = (viewDist / FogAndDistanceControl.z) < 1.0 ? scatterExt : vec4_splat(0.0);
 
     //temporal accumulation stuff
     vec3 uvwNoJitt = (vec3(xyz) + 0.5) / VolumeDimensions.xyz;
