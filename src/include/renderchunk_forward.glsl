@@ -146,7 +146,7 @@ void main() {
         blockAmbient = saturate(vec3(blm, blm * ((blm * 0.6 + 0.4) * 0.6 + 0.4), blm * ((blm * blm * 0.6) + 0.4)));
     }
     vec3 skyAmbient = (v_scatterColor + v_absorbColor / SUN_MAX_ILLUMINANCE) * mix(pow(v_lightmapUV.g, 3.0), pow(v_lightmapUV.g, 5.0), CameraLightIntensity.g) * SKY_AMBIENT_INTENSITY;
-    vec3 ambientLight = max(blockAmbient + skyAmbient * vanillaAO * vanillaAO, vec3_splat(MIN_AMBIENT_LIGHT)) ;
+    vec3 ambientLight = max(blockAmbient * vanillaAO + skyAmbient * vanillaAO * vanillaAO, vec3_splat(MIN_AMBIENT_LIGHT));
     vec3 outColor = ambientLight * albedo.rgb * (1.0 - mers.r);
 
     //directional lighting
@@ -186,7 +186,7 @@ void main() {
         if (isCameraInsideWater) {
             outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
             vec3 wscattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * luminance(v_absorbColor) * CameraLightIntensity.y;
-            outColor = mix(outColor, wscattering, 0.5);
+            outColor = mix(outColor, wscattering, 0.01);
         }
 
         vec3 projPos = v_clipPos.xyz / v_clipPos.w;
