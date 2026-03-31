@@ -29,24 +29,27 @@ float bilinearTransmittance(vec4 samples, vec2 weights, float compValue, float f
 
 float calcFPShadow(vec3 worldPos, float nDotSd) {
     vec3 projPos = mul(PlayerShadowProj, vec4(worldPos, 1.0)).xyz;
-    projPos.z = min(projPos.z, 1.0);
 
     float slopeMask = clamp(nDotSd, NdLFloor.r, 1.0);
     float shadowBias = CascadesParameters[0].g + CascadesParameters[0].b * (sqrt(1.0 - (slopeMask * slopeMask)) / slopeMask);
+    projPos.z -= shadowBias;
+    projPos.z = min(projPos.z, 1.0);
 
 #if BGFX_SHADER_LANGUAGE_GLSL
     vec2 uvShadow = projPos.xy * 0.5 + 0.5;
     float occluder = projPos.z * 0.5 + 0.5;
-    occluder -= shadowBias;
 #else
     vec2 uvShadow = vec2(projPos.x, -projPos.y) * 0.5 + 0.5;
-    float occluder = projPos.z - shadowBias;
+    float occluder = projPos.z;
 #endif
 
     float shadowScale = FirstPersonPlayerShadowsEnabledAndResolutionAndFilterWidthAndTextureDimensions.g;
-    uvShadow = uvShadow * shadowScale + vec2(0.0, 1.0 - shadowScale);
-
-    if (uvShadow.x < 0.0 || uvShadow.x >= shadowScale || uvShadow.y < (1.0 - shadowScale) || uvShadow.y >= 1.0) return 1.0;
+    uvShadow *= shadowScale;
+    bool isShadowFrustum = uvShadow.x >= 0.0 && uvShadow.x < shadowScale && uvShadow.y >= 0.0 && uvShadow.y < shadowScale;
+    if (!isShadowFrustum) return 1.0;
+#if BGFX_SHADER_LANGUAGE_GLSL
+    uvShadow.y = uvShadow.y + (1.0 - shadowScale);
+#endif
 
     float cascade = dot(CascadesPerSet, vec4_splat(1.0)) + 1.0;
     float result = 0.0;
@@ -76,10 +79,10 @@ int getCascade(vec3 worldPos, out vec3 projPos, out mat4 invProj) {
     int numCascade = int(dot(clamp(CascadesPerSet, 0.0, 1.0), vec4_splat(1.0)));
 
     LOOP
-    for(int i = 0; i < numCascade; i++){
+    for (int i = 0; i < numCascade; i++) {
         int cascadePerSet = min(int(CascadesPerSet[i]), 8 - numShadow);
         LOOP
-        for(int j = 0; j < cascadePerSet; j++){
+        for (int j = 0; j < cascadePerSet; j++) {
             int cascadeIdx = numShadow + j;
             projPos = mul(CascadesShadowProj[cascadeIdx], vec4(worldPos, 1.0)).xyz;
             invProj = CascadesShadowInvProj[cascadeIdx];
