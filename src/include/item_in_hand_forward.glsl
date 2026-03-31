@@ -181,7 +181,12 @@ void main() {
         float blm = TileLightIntensity.r * TileLightIntensity.r;
         blockAmbient = saturate(vec3(blm, blm * ((blm * 0.6 + 0.4) * 0.6 + 0.4), blm * ((blm * blm * 0.6) + 0.4)));
     }
-    vec3 skyAmbient = (v_scatterColor + v_absorbColor / SUN_MAX_ILLUMINANCE) * mix(pow(TileLightIntensity.g, 3.0), pow(TileLightIntensity.g, 5.0), CameraLightIntensity.g) * SKY_AMBIENT_INTENSITY;
+
+    float skylmContrib = mix(pow(TileLightIntensity.g, 3.0), pow(TileLightIntensity.g, 5.0), CameraLightIntensity.g);
+    if (int(DimensionID.r) == 1) skylmContrib = 0.05;
+    if (int(DimensionID.r) == 2) skylmContrib = 0.02;
+    vec3 skyAmbient = (v_scatterColor + v_absorbColor / SUN_MAX_ILLUMINANCE) * skylmContrib * SKY_AMBIENT_INTENSITY;
+
     vec3 ambientLight = max(blockAmbient + skyAmbient, vec3_splat(MIN_AMBIENT_LIGHT));
     vec3 outColor = ambientLight * albedo.rgb * (1.0 - mers.r);
 
@@ -205,12 +210,11 @@ void main() {
 
     float worldDist = length(v_worldPos);
 
-    bool isCameraUnderWater = CameraIsUnderwater.r > 0.0;
-    bool isNeedSkyReflection = !isCameraUnderWater && int(DimensionID.r) != 0;
+    bool isWaterBody = CausticsParameters.a > 0.0;
 
     if (int(DimensionID.r) == 0) {
         //reflections
-        outColor += indirectSpecular(f0, worldDir, normal, blockAmbient, mers.b, mers.r, TileLightIntensity.g, isNeedSkyReflection);
+        outColor += indirectSpecular(f0, worldDir, normal, blockAmbient, mers.b, mers.r, TileLightIntensity.g, !isWaterBody);
 
 #ifdef VOLUMETRIC_CLOUDS_ENABLED
         float dither = texelFetch(s_CausticsTexture, ivec3(ivec2(gl_FragCoord.xy) % 256, 1), 0).r;
@@ -218,7 +222,7 @@ void main() {
 #endif
 
         //underwater extinction and scattering
-        if (isCameraUnderWater) {
+        if (isWaterBody) {
             outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
             vec3 wscattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * luminance(v_absorbColor) * CameraLightIntensity.y;
             outColor = mix(outColor, wscattering, 0.01);
