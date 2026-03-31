@@ -29,7 +29,6 @@ void main() {
 #endif
 
 #if DO_INDIRECT_SPECULAR_SHADING_DUAL_TARGET_PASS || DO_INDIRECT_SPECULAR_SHADING_SINGLE_TARGET_PASS
-uniform highp vec4 CameraIsUnderwater;
 uniform highp vec4 FogAndDistanceControl;
 uniform highp vec4 RenderChunkFogAlpha;
 uniform highp vec4 DimensionID;
@@ -60,6 +59,10 @@ void main() {
     vec3 worldPos = projToWorld(projPos);
     vec3 worldDir = normalize(worldPos);
 
+    bool isOverworld = int(DimensionID.r) == 0;
+    bool isCameraInsideWater = FogAndDistanceControl.r < EPSILON;
+    bool isNeedReflection = !isCameraInsideWater && isOverworld;
+
     //materials data from gbuffers
     uvec4 data16 = texelFetch(s_EmissiveAmbientLinearRoughness, ivec2(gl_FragCoord.xy), 0) & 0xFFFFu;
     vec4 blightColor = vec4(data16.g >> 8, data16.g & 0xFFu, data16.b >> 8, data16.b & 0xFFu) / 255.0;
@@ -68,11 +71,12 @@ void main() {
     vec4 data = texture2D(s_ColorMetalnessSubsurface, v_texcoord0);
     float metalness = unpackMetalness(data.a);
     vec3 albedo = toLinear(data.rgb);
-    vec3 f0 = mix(vec3_splat(0.02), albedo, metalness);
     vec3 normal = octToNdirSnorm(texture2D(s_Normal, v_texcoord0).rg);
 
-    bool isOverworld = int(DimensionID.r) == 0;
-    bool isNeedSkyReflection = !(CameraIsUnderwater.r > 0.0) && isOverworld;
+    vec3 f0 = mix(vec3_splat(0.02), albedo, metalness);
+    if (all(lessThan(data, vec4_splat(EPSILON)))) { //water
+        f0 = isCameraInsideWater ? smoothstep(1.0, 0.0, dot(normal, refract(worldDir, -normal, 1.333))) : 0.04;
+    }
 
     float exposure = texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r;
 
@@ -80,9 +84,10 @@ void main() {
     vec3 outColor = vec3_splat(0.0);
 
     if (depth < 1.0) {
-        outColor = indirectSpecular(f0, worldDir, normal, blockAmbient, v_texcoord0, roughness, metalness, skyLightmap, exposure, isNeedSkyReflection);
+        outColor = indirectSpecular(f0, worldDir, normal, blockAmbient, v_texcoord0, roughness, metalness, skyLightmap, exposure, isNeedReflection);
 
-        float wDistNorm = length(worldPos) / FogAndDistanceControl.z;
+        float worldDist = length(worldPos);
+        float wDistNorm = worldDist / FogAndDistanceControl.z;
         float borderFog = saturate((wDistNorm + RenderChunkFogAlpha.x - FogAndDistanceControl.x) * FogAndDistanceControl.y);
         if (!isOverworld) outColor = outColor * saturate(1.0 - borderFog);
 
@@ -92,6 +97,8 @@ void main() {
         float cloudTransmittance = calcCloudTransmittanceOnly(worldDir, wDistNorm, dither, true, cloudSetup);
         outColor *= cloudTransmittance;
 #endif
+
+        if (isCameraInsideWater) outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
 
         vec3 uvw = ndcToVolume(projPos);
         vec4 volumetricFog = sampleVolume(s_ScatteringBuffer, uvw);
