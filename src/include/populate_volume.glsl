@@ -17,6 +17,8 @@ uniform highp vec4 SunDir;
 uniform highp vec4 TemporalSettings;
 uniform highp vec4 CameraLightIntensity;
 
+SAMPLER2D_HIGHP_AUTOREG(s_ScreenSpaceWaterFrontFaceDepthAndNormal);
+SAMPLER2D_HIGHP_AUTOREG(s_ScreenSpaceWaterBackFaceDepthAndNormal);
 SAMPLER2DARRAY_AUTOREG(s_ShadowCascades);
 SAMPLER2DARRAY_AUTOREG(s_PreviousLightingBuffer);
 IMAGE2D_ARRAY_WR_AUTOREG(s_CurrentLightingBuffer, rgba16f);
@@ -37,9 +39,13 @@ float calcFPShadow(vec3 worldPos){
     float occluder = projPos.z;
 #endif
 
-    float shadowScale = FirstPersonPlayerShadowsEnabledAndResolutionAndFilterWidthAndTextureDimensions.y;
-    uvShadow = uvShadow * shadowScale + vec2(0.0, 1.0 - shadowScale);
-    if (!(uvShadow.x >= 0.0 && uvShadow.x < shadowScale && uvShadow.y >= (1.0 - shadowScale) && uvShadow.y < 1.0)) return 1.0;
+    float shadowScale = FirstPersonPlayerShadowsEnabledAndResolutionAndFilterWidthAndTextureDimensions.g;
+    uvShadow *= shadowScale;
+    bool isShadowFrustum = uvShadow.x >= 0.0 && uvShadow.x < shadowScale && uvShadow.y >= 0.0 && uvShadow.y < shadowScale;
+    if (!isShadowFrustum) return 1.0;
+#if BGFX_SHADER_LANGUAGE_GLSL
+    uvShadow.y = uvShadow.y + (1.0 - shadowScale);
+#endif
 
     float cascade = dot(CascadesPerSet, vec4_splat(1.0)) + 1.0;
     return step(occluder, texture2DArrayLod(s_ShadowCascades, vec3(uvShadow, cascade), 0.0).r);
@@ -141,9 +147,19 @@ void main() {
 
     // water scattering
     float cost = dot(worldDir, DirectionalLightSourceWorldSpaceDirection.xyz);
-    vec3 waterScattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * PhaseHG(cost, 0.7) * shadowMap;
+    vec3 waterScattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * PhaseHG(cost, 0.65) * shadowMap * luminance(absorbColor) * 0.03;
+#if BGFX_SHADER_LANGUAGE_GLSL
+    ivec2 newCoord = xyz.xy;
+#else
+    ivec2 newCoord = ivec2(xyz.x, int(VolumeDimensions.y) - xyz.y);
+#endif
+    vec2 ffdn = texelFetch(s_ScreenSpaceWaterFrontFaceDepthAndNormal, newCoord, 0).rg;
+    vec2 bfdn = texelFetch(s_ScreenSpaceWaterBackFaceDepthAndNormal, newCoord, 0).rg;
+    float waterBody = smoothstep(-0.5, 0.5, ((((uvw.z - ffdn.r) * VolumeDimensions.z) * ffdn.g) - CameraUnderwaterAndWaterSurfaceBiasAndFalloff.y) / CameraUnderwaterAndWaterSurfaceBiasAndFalloff.z);
+    if (waterBody >= 0.0 && (uvw.z - bfdn.r) >= 0.0) waterBody = 0.0;
     if (CameraUnderwaterAndWaterSurfaceBiasAndFalloff.x > 0.0) {
-        scatterExt = vec4(waterScattering * luminance(absorbColor) * 0.03, 0.0);
+        waterBody = 1.0 - waterBody;
+        scatterExt = mix(scatterExt, vec4(waterScattering, 0.0), waterBody);
     }
 
     // cut scattering if out of render distance
