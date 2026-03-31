@@ -33,7 +33,7 @@ vec3 getProbeLighting(float a, vec3 rv) {
 uniform highp vec4 SSRParameters;
 SAMPLER2D_HIGHP_AUTOREG(s_SSRTexture);
 
-vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 blockAmbient, vec2 ssrUV, float roughness, float metalness, float skyLightmap, float exposure, bool isNeedSkyReflection) {
+vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 blockAmbient, vec2 ssrUV, float roughness, float metalness, float skyLightmap, float exposure, bool isNeedReflection) {
     vec3 ambientColor = mix(vec3_splat(MIN_AMBIENT_LIGHT), blockAmbient, luminance(blockAmbient)) * metalness;
     vec3 incomingLight = ambientColor;
 
@@ -42,9 +42,7 @@ vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 blockAmbient, ve
         float reflIntensity = 1.0 - sqrt(roughness);
         vec3 skyProbe = getProbeLighting(roughness, reflectedDir);
 
-        if (isNeedSkyReflection) {
-            incomingLight = mix(incomingLight, skyProbe * pow(skyLightmap, 3.0) * reflIntensity, reflIntensity);
-        }
+        if (isNeedReflection) incomingLight = mix(incomingLight, skyProbe * pow(skyLightmap, 3.0) * reflIntensity, reflIntensity);
 
         float iblLuminance = luminance(incomingLight);
         float ambientLuminance = luminance(ambientColor);
@@ -52,7 +50,7 @@ vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 blockAmbient, ve
 
         vec4 ssr = texture2D(s_SSRTexture, ssrUV);
         ssr.rgb = unExposeLighting(ssr.rgb, exposure);
-        if (SSRParameters.r > 0.0 && isNeedSkyReflection) incomingLight = mix(incomingLight, ssr.rgb, ssr.a * SSRParameters.g);
+        if (SSRParameters.r > 0.0) incomingLight = mix(incomingLight, ssr.rgb, ssr.a * SSRParameters.g);
     }
 
     float cost = saturate(dot(-worldDir, normal));
@@ -64,7 +62,7 @@ vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 blockAmbient, ve
 
 #else
 
-vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 blockAmbient, float roughness, float metalness, float skyLightmap, bool isNeedSkyReflection) {
+vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 blockAmbient, float roughness, float metalness, float skyLightmap, bool isNeedReflection) {
     vec3 ambientColor = mix(vec3_splat(MIN_AMBIENT_LIGHT), blockAmbient, luminance(blockAmbient)) * metalness;
     vec3 incomingLight = ambientColor;
 
@@ -73,9 +71,7 @@ vec3 indirectSpecular(vec3 f0, vec3 worldDir, vec3 normal, vec3 blockAmbient, fl
         float reflIntensity = 1.0 - sqrt(roughness);
         vec3 skyProbe = getProbeLighting(roughness, reflectedDir);
 
-        if (isNeedSkyReflection) {
-            incomingLight = mix(incomingLight, skyProbe * pow(skyLightmap, 3.0) * reflIntensity, reflIntensity);
-        }
+        if (isNeedReflection) incomingLight = mix(incomingLight, skyProbe * pow(skyLightmap, 3.0) * reflIntensity, reflIntensity);
 
         float iblLuminance = luminance(incomingLight);
         float ambientLuminance = luminance(ambientColor);
