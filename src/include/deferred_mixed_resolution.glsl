@@ -72,33 +72,19 @@ void main() {
 }
 #endif
 
+
 #if CAUSTICS_MULTIPLIER_PASS
-uniform highp vec4 DirectionalLightSourceWorldSpaceDirection;
-uniform highp vec4 Time;
-uniform highp vec4 WorldOrigin;
-
-SAMPLER2D_HIGHP_AUTOREG(s_SceneDepth);
-
-#include "./lib/water_wave.glsl"
-
-vec3 projToWorld(vec3 projPos) {
-    vec4 worldPos = mul(u_invViewProj, vec4(projPos, 1.0));
-    return worldPos.xyz / worldPos.w;
-}
-
 void main() {
-    float depth = sampleDepth(s_SceneDepth, v_texcoord0);
-    vec3 worldPos = projToWorld(vec3(v_projPos, depth));
-    vec3 position = worldPos - WorldOrigin.xyz;
-    float caustic = calcCaustic(position, DirectionalLightSourceWorldSpaceDirection.xyz, Time.x);
-    gl_FragData[0] = vec4(caustic, 1.0, 1.0, 1.0);
+    gl_FragData[0] = vec4(0.0, 1.0, 1.0, 1.0);
 }
 #endif
+
 
 #if DIRECTIONAL_LIGHTING_PASS
 uniform highp vec4 DirectionalLightSourceWorldSpaceDirection;
 uniform highp vec4 Time;
 uniform highp vec4 WorldOrigin;
+uniform highp vec4 FogAndDistanceControl;
 
 SAMPLER2D_HIGHP_AUTOREG(s_ColorMetalnessSubsurface);
 SAMPLER2D_HIGHP_AUTOREG(s_Normal);
@@ -110,6 +96,7 @@ SAMPLER2D_HIGHP_AUTOREG(s_CausticsMultiplier);
 #include "./lib/shadow.glsl"
 #include "./lib/bsdf.glsl"
 #include "./lib/clouds.glsl"
+#include "./lib/water_wave.glsl"
 
 vec3 projToWorld(vec3 projPos) {
     vec4 worldPos = mul(u_invViewProj, vec4(projPos, 1.0));
@@ -143,14 +130,17 @@ void main() {
     shadowMap.b = min(shadowMap.b, cloudShadow); //used for specular
 #endif
 
-    float caustic = texture2D(s_CausticsMultiplier, v_texcoord0).r;
-    shadowMap = shadowMap * (0.5 + caustic * 1.5);
+    float waterBodyMask = texture2D(s_CausticsMultiplier, v_texcoord0).r;
+    if (waterBodyMask < 1.0) {
+        float caustic = calcCaustic(position, DirectionalLightSourceWorldSpaceDirection.xyz, Time.x);
+        shadowMap = (FogAndDistanceControl.r < EPSILON) ? shadowMap * (caustic * 2.4 + 0.1) : shadowMap * (caustic * 2.0 + 0.5);
+    }
 
     vec3 bsdf = BSDF(normal, DirectionalLightSourceWorldSpaceDirection.xyz, -worldDir, f0, albedo, shadowMap, metalness, roughness, subsurface);
     vec3 alwaysLit = albedo * emssive * EMISSIVE_MATERIAL_INTENSITY;
 
     gl_FragData[0] = depth < 1.0 ? vec4(v_absorbColor * bsdf + alwaysLit, 1.0) : vec4_splat(0.0);
-    gl_FragData[1] = vec4_splat(0.0);
+    gl_FragData[1] = vec4(waterBodyMask, 0.0, 0.0, 1.0);
 }
 
 #endif //DIRECTIONAL_LIGHTING_PASS
@@ -176,7 +166,12 @@ void main() {
     float metalness = unpackMetalness(data.a);
 
     vec3 blockAmbient = blightColor.rgb * blightColor.a * 6.0;
-    vec3 skyAmbient = (v_scatterColor + v_absorbColor / SUN_MAX_ILLUMINANCE) * mix(pow(skyLightmap, 3.0), pow(skyLightmap, 5.0), CameraLightIntensity.y) * SKY_AMBIENT_INTENSITY;
+
+    float skylmContrib = mix(pow(skyLightmap, 3.0), pow(skyLightmap, 5.0), CameraLightIntensity.y);
+    if (int(DimensionID.r) == 1) skylmContrib = 0.05; //nether
+    if (int(DimensionID.r) == 2) skylmContrib = 0.02; //end world
+    vec3 skyAmbient = (v_scatterColor + v_absorbColor / SUN_MAX_ILLUMINANCE) * skylmContrib * SKY_AMBIENT_INTENSITY;
+
     vec3 ambientLight = max(blockAmbient * vanillaAO + skyAmbient * vanillaAO * vanillaAO, vec3_splat(MIN_AMBIENT_LIGHT));
     vec3 outColor = ambientLight * albedo * (1.0 - metalness);
 
@@ -190,7 +185,6 @@ void main() {
 
 #if SURFACE_RADIANCE_UPSCALE_PASS
 uniform highp vec4 CameraLightIntensity;
-uniform highp vec4 CameraIsUnderwater;
 uniform highp vec4 DimensionID;
 uniform highp vec4 FogColor;
 uniform highp vec4 SunDir;
@@ -248,6 +242,10 @@ void main() {
 
     if (isTerrain) outColor = texture2D(s_DiffuseLighting, v_texcoord0).rgb;
 
+    bool isWaterBody = texture2D(s_SpecularLighting, v_texcoord0).r < 1.0;
+    bool isCameraUnderwater = FogAndDistanceControl.r < EPSILON;
+    // bool isCameraUnderlava = FogAndDistanceControl.r > 0.4 && FogAndDistanceControl.r < 0.6;
+
     if (int(DimensionID.r) == 0) {
         //sky
         vec3 scattering = GetAtmosphere(sunAtmParams) * SUN_MAX_ILLUMINANCE;
@@ -262,7 +260,7 @@ void main() {
 #endif
 
         //underwater extinction and scattering
-        if (CameraIsUnderwater.r > 0.0) {
+        if (isWaterBody && isCameraUnderwater) {
             outColor *= exp(-WATER_EXTINCTION_COEFFICIENTS * worldDist);
             vec3 wscattering = exp(-WATER_EXTINCTION_COEFFICIENTS * 10.0) * luminance(v_absorbColor) * CameraLightIntensity.y;
             outColor = mix(outColor, wscattering, 0.01);
