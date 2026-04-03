@@ -75,7 +75,7 @@ void main() {
 
     vec3 f0 = mix(vec3_splat(0.02), albedo, metalness);
     if (all(lessThan(data, vec4_splat(EPSILON)))) { //water
-        f0 = isCameraInsideWater ? smoothstep(1.0, 0.0, dot(normal, refract(worldDir, -normal, 1.333))) : 0.04;
+        f0 = isCameraInsideWater ? vec3_splat(1.0) * smoothstep(1.0, 0.0, dot(normal, refract(worldDir, -normal, 1.333))) : vec3_splat(0.04);
     }
 
     float exposure = texture2D(s_PreviousFrameAverageLuminance, vec2_splat(0.5)).r;
