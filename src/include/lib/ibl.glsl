@@ -13,7 +13,7 @@ SAMPLERCUBEARRAY_AUTOREG(s_SpecularIBLRecords);
 
 float getIBLMipLevel(float a) {
     float x = 1.0 - a;
-    if (int(ConvolutionType.x) != 1) x = x * x * x * x;
+    if (int(ConvolutionType.x) != 1) x = pow4(x);
     return (1.0 - x * x) * (IBLParameters.y - 1.0);
 }
 

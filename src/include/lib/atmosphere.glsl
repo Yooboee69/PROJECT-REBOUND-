@@ -31,16 +31,12 @@
 #define M_OZONE               1.5
 #define M_OZONE2              5.0
 
-float sq(float x) { return x*x; }
-float pow4(float x) { return sq(x)*sq(x); }
-float pow8(float x) { return pow4(x)*pow4(x); }
-
 // https://iquilezles.org/articles/intersectors/
 vec2 SphereIntersection(vec3 rayStart, vec3 rayDir, vec3 sphereCenter, float sphereRadius) {
     vec3 oc = rayStart - sphereCenter;
     float b = dot(oc, rayDir);
-    float c = dot(oc, oc) - sq(sphereRadius);
-    float h = sq(b) - c;
+    float c = dot(oc, oc) - pow2(sphereRadius);
+    float h = pow2(b) - c;
     if (h < 0.0) {
         return vec2(-1.0, -1.0);
     } else {
@@ -50,7 +46,7 @@ vec2 SphereIntersection(vec3 rayStart, vec3 rayDir, vec3 sphereCenter, float sph
 }
 
 vec3 GetLightTransmittance(vec3 lightDir, float multiplier, float ozoneMultiplier) {
-    float lightExtinctionAmount = exp(-(saturate(lightDir.y + 0.03) * 40.0)) + exp(-(saturate(lightDir.y + 0.3) * 5.0)) * 0.4 + sq(saturate(1.0-lightDir.y)) * 0.02 + 0.002;
+    float lightExtinctionAmount = exp(-(saturate(lightDir.y + 0.03) * 40.0)) + exp(-(saturate(lightDir.y + 0.3) * 5.0)) * 0.4 + pow2(saturate(1.0-lightDir.y)) * 0.02 + 0.002;
     return exp(-(C_RAYLEIGH + C_MIE + C_OZONE * ozoneMultiplier) * lightExtinctionAmount * ATMOSPHERE_DENSITY * multiplier * M_LIGHT_TRANSMITTANCE);
 }
 
@@ -95,11 +91,11 @@ vec3 GetAtmosphere(AtmosphereParams params, out vec4 transmittance) {
         opticalDepth = min(opticalDepth * params.aerial * M_AERIAL * AERIAL_SCALE, t2.y);
 
         // Altitude-based density modulators
-        float hbias = 1.0 - 1.0 / (2.0 + sq(t2.y) * M_DENSITY_HEIGHT_MOD);
+        float hbias = 1.0 - 1.0 / (2.0 + pow2(t2.y) * M_DENSITY_HEIGHT_MOD);
         hbias = pow(hbias, 1.0 + normAltitude * M_DENSITY_CAM_MOD); // Really need a pow here, bleh
-        float sqhbias = sq(hbias);
+        float sqhbias = pow2(hbias);
         float densityR = sqhbias * ATMOSPHERE_DENSITY;
-        float densityM = sq(sqhbias) * hbias * ATMOSPHERE_DENSITY;
+        float densityM = pow2(sqhbias) * hbias * ATMOSPHERE_DENSITY;
 
         // Apply light transmittance (makes sky red as sun approaches horizon)
         float ly = params.lightDir.y;
@@ -117,13 +113,14 @@ vec3 GetAtmosphere(AtmosphereParams params, out vec4 transmittance) {
         float phaseM = PhaseHG(costh, 0.8);
 
         // Combined scattering
-        vec3 rayleigh = (phaseR * params.occlusion + phaseR * M_FAKE_MS) * saturation(lightColor, 0.5);
+        float desaturate = smoothstep(0.0, 0.1, params.lightDir.y) * 0.75 + 0.25;
+        vec3 rayleigh = (phaseR * params.occlusion + phaseR * M_FAKE_MS) * saturation(lightColor, desaturate);
         vec3 mie = (phaseM * params.occlusion + phaseR * M_FAKE_MS) * lightColor * params.mieMod;
         vec3 scattering = mie * M + rayleigh * R;
 
         // View extinction, matched to reference
         transmittance.rgb = exp(-(opticalDepth + pow8(opticalDepth * 4.5e-6)) * E);
-        transmittance.rgb = saturation(transmittance.rgb, 0.5);
+        transmittance.rgb = saturation(transmittance.rgb, desaturate);
         // Store planet intersection flag in transmittance.w, useful for occluding clouds, celestial bodies etc.
         transmittance.a = step(t1.x, 0.0);
 

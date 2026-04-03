@@ -81,4 +81,12 @@ vec3 fromLinear(vec3 linearRGB) {
     return mix(higher, lower, cutoff);
 }
 
+float pow2(float x) { return x * x; }
+float pow3(float x) { return x * x * x; }
+float pow4(float x) { return x * x * x * x; }
+float pow5(float x) { return x * x * x * x * x; }
+float pow6(float x) { return x * x * x * x * x * x; }
+float pow7(float x) { return x * x * x * x * x * x * x; }
+float pow8(float x) { return x * x * x * x * x * x * x * x; }
+
 #endif

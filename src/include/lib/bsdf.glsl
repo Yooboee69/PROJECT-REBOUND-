@@ -17,7 +17,7 @@ float V_SmithGGXCorrelated(float NoV, float NoL, float a) {
 }
 
 vec3 F_Schlick(float u, vec3 f0) {
-    return f0 + (vec3_splat(1.0) - f0) * pow(clamp(1.0 - u, 0.0, 1.0), 5.0);
+    return f0 + (vec3_splat(1.0) - f0) * pow5(clamp(1.0 - u, 0.0, 1.0));
 }
 
 float wrappedDiffuse(vec3 n, vec3 l, float w) {
