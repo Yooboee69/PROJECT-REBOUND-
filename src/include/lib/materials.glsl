@@ -86,7 +86,9 @@ vec3 calculateTangentNormalFromHeightmap(highp sampler2D heightmapTexture, vec2 
 defined(MATERIAL_ITEM_IN_HAND_PREPASS_TEXTURED) || \
 defined(MATERIAL_RENDERCHUNK_FORWARD_PBR) || \
 defined(MATERIAL_RENDERCHUNK_PREPASS) || \
-defined(MATERIAL_TEXTURE_SHIFT_RENDERCHUNK_PREPASS)
+defined(MATERIAL_TEXTURE_SHIFT_RENDERCHUNK_PREPASS) || \
+defined(MATERIAL_SINGLE_BLOCK_FORWARD_PBR) || \
+defined(MATERIAL_SINGLE_BLOCK_PREPASS)
 
 struct PBRTextureData {
     highp float colourToMaterialUvScale0;
