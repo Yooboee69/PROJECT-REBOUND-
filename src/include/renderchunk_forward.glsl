@@ -10,6 +10,7 @@
 uniform vec4 SunDir;
 uniform vec4 MoonDir;
 uniform vec4 DimensionID;
+uniform vec4 ViewPositionAndTime;
 
 void main() {
 #if INSTANCING__ON
@@ -19,8 +20,6 @@ void main() {
 #endif
 
     v_texcoord0 = a_texcoord0;
-
-#if !DEPTH_ONLY_PASS && !DEPTH_ONLY_OPAQUE_PASS
     uvec2 data16 = uvec2(a_texcoord1 * 65535.0);
     uvec2 highByte = (data16 >> 8) & 0xFFu;
     uvec2 lowByte = data16 & 0xFFu;
@@ -29,6 +28,18 @@ void main() {
     v_lightColor = vec3(mHighByte.x, lowByte.x, mHighByte.y) / 255.0 * lintensity * 6.0;
     v_lightmapUV = vec2(uvec2(data16.y >> 4, data16.y) & 15u) / 15.0;
 
+#if DEPTH_ONLY_PASS || DEPTH_ONLY_OPAQUE_PASS
+#if RENDER_AS_BILLBOARDS__ON
+    worldPos += vec3_splat(0.5);
+    vec3 forward = normalize(worldPos - ViewPositionAndTime.xyz);
+    vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
+    vec3 up = cross(forward, right);
+    vec3 offsets = a_color0.xyz;
+    worldPos -= up * (offsets.z - 0.5) + right * (offsets.x - 0.5);
+#endif
+
+    gl_Position = mul(u_viewProj, vec4(worldPos, 1.0));
+#else
     v_pbrTextureId = a_texcoord4 & 0xFFFF;
     v_normal = mul(u_model[0], vec4(a_normal.xyz, 0.0)).xyz;
     v_tangent = mul(u_model[0], vec4(a_tangent.xyz, 0.0)).xyz;
@@ -70,9 +81,7 @@ void main() {
     }
 
     gl_Position = jitterVertexPosition(worldPos);
-#else
-    gl_Position = mul(u_viewProj, vec4(worldPos, 1.0));
-#endif //DEPTH_ONLY_PASS && DEPTH_ONLY_OPAQUE_PASS
+#endif //DEPTH_ONLY_PASS || DEPTH_ONLY_OPAQUE_PASS
 }
 #endif //BGFX_SHADER_TYPE_VERTEX
 
@@ -113,9 +122,11 @@ SAMPLER2D_HIGHP_AUTOREG(s_PreviousFrameAverageLuminance);
 void main() {
 #if DEPTH_ONLY_PASS
     if (texture2D(s_MatTexture, v_texcoord0).a < 0.5) discard;
-    gl_FragData[0] = vec4_splat(0.0);
+    vec3 ambientLight = texture2D(s_LightMapTexture, vec2(0.0, v_lightmapUV.y)).rgb;
+    gl_FragData[0] = vec4(saturate(sqrt(v_lightColor + ambientLight * ambientLight)), 1.0);
 #elif DEPTH_ONLY_OPAQUE_PASS
-    gl_FragData[0] = vec4_splat(0.0);
+    vec3 ambientLight = texture2D(s_LightMapTexture, vec2(0.0, v_lightmapUV.y)).rgb;
+    gl_FragData[0] = vec4(saturate(sqrt(v_lightColor + ambientLight * ambientLight)), 1.0);
 #else
 
     //materials setup

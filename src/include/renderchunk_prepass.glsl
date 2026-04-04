@@ -5,6 +5,7 @@
 // VERTEX SHADER
 ///////////////////////////////////////////////////////////
 #if BGFX_SHADER_TYPE_VERTEX
+uniform vec4 ViewPositionAndTime;
 void main() {
 #if INSTANCING__ON
     vec3 worldPos = mul(mtxFromCols(i_data1, i_data2, i_data3, vec4(0.0, 0.0, 0.0, 1.0)), vec4(a_position, 1.0)).xyz;
@@ -15,7 +16,7 @@ void main() {
 #if RENDER_AS_BILLBOARDS__ON
     vec4 color = vec4_splat(1.0);
     worldPos += vec3_splat(0.5);
-    vec3 forward = normalize(-worldPos);
+    vec3 forward = normalize(worldPos - ViewPositionAndTime.xyz);
     vec3 right = normalize(cross(vec3(0.0, 1.0, 0.0), forward));
     vec3 up = cross(forward, right);
     vec3 offsets = a_color0.xyz;
@@ -109,7 +110,7 @@ void main() {
 #endif
 
     vec3 lightColor = v_lightColor;
-    if ((lightColor.r + lightColor.g + lightColor.b) < 0.0 && v_lightmapUV.x > 0.0) {
+    if ((lightColor.r + lightColor.g + lightColor.b) <= 0.0 && v_lightmapUV.x > 0.0) {
         float blm = v_lightmapUV.x * v_lightmapUV.x;
         lightColor = saturate(vec3(blm, blm * ((blm * 0.6 + 0.4) * 0.6 + 0.4), blm * ((blm * blm * 0.6) + 0.4)));
     }

@@ -52,12 +52,14 @@ SAMPLER2D_HIGHP_AUTOREG(s_NormalTexture);
 #include "./lib/materials.glsl"
 
 void main() {
-    vec4 albedo = texture2D(s_ParticleTexture, v_texcoord0);
 #if ALPHA_TEST_PASS || GEOMETRY_PREPASS_ALPHA_TEST_PASS
+    vec4 albedo = texture2D(s_ParticleTexture, v_texcoord0);
     if (albedo.a < 0.5) discard;
-    albedo.a = 1.0;
-#endif
     albedo *= v_color0;
+    albedo.a = 1.0;
+#else
+    vec4 albedo = texture2D(s_ParticleTexture, v_texcoord0) * v_color0;
+#endif
 
 #if GEOMETRY_PREPASS_ALPHA_TEST_PASS
     int pbrTextureFlags = int(PBRTextureFlags.r);

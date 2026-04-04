@@ -102,12 +102,14 @@ SAMPLER2D_HIGHP_AUTOREG(s_PreviousFrameAverageLuminance);
 #endif
 
 void main() {
+#if ALPHA_TEST_PASS || GEOMETRY_PREPASS_ALPHA_TEST_PASS
     vec4 albedo = texture2D(s_ParticleTexture, v_texcoord0);
-#if ALPHA_TEST_PASS
     if (albedo.a < 0.5) discard;
-    albedo.a = 1.0;
-#endif
     albedo *= v_color0;
+    albedo.a = 1.0;
+#else
+    vec4 albedo = texture2D(s_ParticleTexture, v_texcoord0) * v_color0;
+#endif
 
 #if FORWARD_PBR_TRANSPARENT_PASS
     //materials setup

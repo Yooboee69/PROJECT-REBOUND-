@@ -31,7 +31,8 @@ float linearstep(float edge0, float edge1, float x) {
 }
 
 vec3 saturation(vec3 color, float val) {
-    return mix(vec3_splat(luminance(color)), color, val);
+	float lum = luminance(color);
+    return mix(vec3_splat(lum), color, val);
 }
 
 vec3 preExposeLighting(vec3 color, float luminance) {
